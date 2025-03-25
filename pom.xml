@@ -23,7 +23,7 @@
                     <archive>
                         <manifest>
                             <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                            <mainClass>us.otechu.Main</mainClass>
+                            <mainClass>us.otechu.DrawWithFriends</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
