@@ -1,9 +1,9 @@
-package us.otechu;
+package us.otechu.client;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-import us.otechu.ui.DrawingAppFrame;
+import us.otechu.client.ui.DrawingAppFrame;
 
 
 /**

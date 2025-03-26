@@ -1,4 +1,4 @@
-package us.otechu.ui;
+package us.otechu.client.ui;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -6,57 +6,57 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 
 /**
  * The main app window (JFrame)
  */
 public class DrawingAppFrame extends JFrame {
-    
-    private JLayeredPane layeredPane;
+
     private DrawingPanel drawingPanel;
     private JPanel controlPanel;
 
     // current drawing settings
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
+    private DrawTools currentTool;
 
     public DrawingAppFrame() {
         super("Draw With Friends"); // window title
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(1000,700); // window size
+        setSize(1500, 1000);
         setLocationRelativeTo(null); // center window
+        setResizable(false); // prevent resizing
 
         // menu bar for file actions
         createMenuBar();
 
-        // create the layered pane
-        layeredPane = new JLayeredPane();
-        layeredPane.setLayout(null); // we manually position components
-        add(layeredPane, BorderLayout.CENTER);
-
         // create the canvas
         drawingPanel = new DrawingPanel();
         drawingPanel.setBackground(Color.WHITE);
-        drawingPanel.setBounds(0, 0, getWidth(), getHeight()); // fill the window if they resize
         // supply for color and thickness
         drawingPanel.setDrawingAttributes(
             () -> currentColor,
             () -> brushSize
         );
-        layeredPane.add(drawingPanel, JLayeredPane.DEFAULT_LAYER);
+        drawingPanel.setCurrentTool(new Pencil(()-> currentColor, ()-> brushSize));
+
+        // canvas container to set boarder
+        JPanel canvasContainer = new JPanel(new BorderLayout());
+        canvasContainer.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        canvasContainer.setBackground(Color.DARK_GRAY);
+        canvasContainer.add(drawingPanel, BorderLayout.CENTER);
+        add(canvasContainer, BorderLayout.CENTER);
+
+        //Add colour palette panel on the left
+        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor); // function to update colour
+        JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        colourContainer.add(colourPanel);
+        add(colourContainer, BorderLayout.LINE_START);
 
         // create the control panel
         controlPanel = createFloatingControls();
-        layeredPane.add(controlPanel, JLayeredPane.PALETTE_LAYER);
-
-        // handle window resizing
-        addComponentListener(new ComponentAdapter() {
-            @Override // override the method to handle the event
-            public void componentResized(ComponentEvent e) {
-                // resize the canvas to fill the window
-                drawingPanel.setBounds(0, 0, layeredPane.getWidth(), layeredPane.getHeight());
-            }
-        });
+        add(controlPanel, BorderLayout.PAGE_START);
     }
 
     /**
@@ -90,7 +90,19 @@ public class DrawingAppFrame extends JFrame {
         JButton clearButton = new JButton("Clear");
         clearButton.addActionListener(e -> drawingPanel.clearCanvas());
         panel.add(clearButton);
-    
+
+
+        JButton pencilButton = new JButton("Pencil");
+        pencilButton.addActionListener(e -> drawingPanel.setCurrentTool(
+                new Pencil(()-> currentColor, ()-> brushSize)));
+        panel.add(pencilButton);
+
+        JButton lineButton = new JButton("Line");
+        lineButton.addActionListener(e -> drawingPanel.setCurrentTool(
+                new Line(()-> currentColor, ()-> brushSize)));
+        panel.add(lineButton);
+
+
         return panel;
     }
 
@@ -100,6 +112,10 @@ public class DrawingAppFrame extends JFrame {
     private void createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
+
+        JMenuItem openItem  = new JMenuItem("Open");
+        openItem.addActionListener(e->openImage());
+        fileMenu.add(openItem);
 
         JMenuItem saveItem = new JMenuItem("Save");
         saveItem.addActionListener(e -> saveDrawing());
@@ -134,5 +150,25 @@ public class DrawingAppFrame extends JFrame {
             }
         }
     }
+    /**
+     * Opens an image and loads it onto the canvas
+     */
+    private void openImage() {
+        JFileChooser fileChooser = new JFileChooser();
+        int userChoice = fileChooser.showOpenDialog(this); // "this" is the parent window
 
+        if (userChoice == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            try {
+                //add image to canvas
+                drawingPanel.setCanvasImage(ImageIO.read(file));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private void setCurrentColor(Color color) {
+        currentColor = color;
+    }
 }

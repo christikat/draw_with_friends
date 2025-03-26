@@ -1,10 +1,6 @@
-package us.otechu.ui;
+package us.otechu.client.ui;
 
-import java.awt.Color;
-import java.awt.BasicStroke;
-import java.awt.Graphics2D;
-import java.awt.Graphics;
-import java.awt.RenderingHints;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -27,36 +23,39 @@ public class DrawingPanel extends JPanel {
     private Supplier<Color> colorSupplier;
     private Supplier<Integer> thicknessSupplier;
 
+    private DrawTools currentTool;
+
+
     public DrawingPanel() {
         // listen for mouse events
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                drawing = true;
-                prevX = e.getX();
-                prevY = e.getY();
-                drawDot(prevX, prevY);
+                if (currentTool != null) {
+                    currentTool.onMousePressed(e, g2);
+                    repaint();
+                }
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                drawing = false;
+                if (currentTool != null) {
+                    currentTool.onMouseReleased(e, g2);
+                    repaint();
+                }
             }
         });
 
         addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-                int x = e.getX();
-                int y = e.getY();
-                g2.setColor(colorSupplier.get());
-                g2.setStroke(new BasicStroke(thicknessSupplier.get()));
-                g2.drawLine(prevX, prevY, x, y);
-                repaint();
-                prevX = x;
-                prevY = y;
+                if (currentTool != null) {
+                    currentTool.onMouseDragged(e, g2);
+                    repaint();
+                }
             }
         });
+
     }
 
     @Override
@@ -64,11 +63,18 @@ public class DrawingPanel extends JPanel {
         super.paintComponent(g);
 
         // if theres no canvas or the window was resized, create a new canvas
-        if (canvasImage == null || canvasImage.getWidth() != getWidth() || canvasImage.getHeight() != getHeight()) {
-            createCanvasImage();
+//        if (canvasImage == null || canvasImage.getWidth() != getWidth() || canvasImage.getHeight() != getHeight()) {
+//            createCanvasImage();
+//        }
+
+        if (canvasImage == null) {
+          createCanvasImage();
         }
 
         g.drawImage(canvasImage, 0, 0, null);
+        if (currentTool != null) {
+            currentTool.preview((Graphics2D) g);
+        }
     }
 
     /**
@@ -121,5 +127,27 @@ public class DrawingPanel extends JPanel {
      */
     public BufferedImage getCanvasImage() {
         return canvasImage;
+    }
+
+    /**
+     * Sets new image onto the canvas
+     * @param image the image to load onto the canvas
+     */
+    public void setCanvasImage(BufferedImage image) {
+        int width = canvasImage.getWidth();
+        int height = canvasImage.getHeight();
+
+        // Create blank image with same height/width as canvas
+        canvasImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        g2 = canvasImage.createGraphics();
+
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON); // smooth lines
+        //Load image onto canvas and refresh
+        g2.drawImage(image, 0, 0, null);
+        repaint();
+    }
+
+    public void setCurrentTool(DrawTools tool) {
+        this.currentTool = tool;
     }
 }
