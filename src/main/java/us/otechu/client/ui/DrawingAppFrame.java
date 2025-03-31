@@ -1,9 +1,11 @@
 package us.otechu.client.ui;
 
+import us.otechu.client.ClientConnection;
+import us.otechu.client.DrawData;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -20,9 +22,13 @@ public class DrawingAppFrame extends JFrame {
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
     private DrawTools currentTool;
+    JButton endTurnButton;
+    private boolean isTurn = false;
+    private final ClientConnection connection;
 
-    public DrawingAppFrame() {
+    public DrawingAppFrame(ClientConnection connection) {
         super("Draw With Friends"); // window title
+        this.connection = connection;
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1500, 1000);
         setLocationRelativeTo(null); // center window
@@ -39,7 +45,7 @@ public class DrawingAppFrame extends JFrame {
             () -> currentColor,
             () -> brushSize
         );
-        drawingPanel.setCurrentTool(new Pencil(()-> currentColor, ()-> brushSize));
+        drawingPanel.setCurrentTool(new Pencil(()-> currentColor, ()-> brushSize, connection));
 
         // canvas container to set boarder
         JPanel canvasContainer = new JPanel(new BorderLayout());
@@ -94,13 +100,27 @@ public class DrawingAppFrame extends JFrame {
 
         JButton pencilButton = new JButton("Pencil");
         pencilButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Pencil(()-> currentColor, ()-> brushSize)));
+                new Pencil(()-> currentColor, ()-> brushSize, connection)));
         panel.add(pencilButton);
 
         JButton lineButton = new JButton("Line");
         lineButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Line(()-> currentColor, ()-> brushSize)));
+                new Line(()-> currentColor, ()-> brushSize, connection)));
         panel.add(lineButton);
+
+        endTurnButton = new JButton("End Turn");
+        endTurnButton.setEnabled(false);
+
+        endTurnButton.addActionListener(e -> {
+            // Prevent sending when it's not their turn
+            if (!isTurn) return;
+
+            setTurn(false);
+            if (connection != null) {
+                connection.send("ENDTURN");
+            }
+        });
+        panel.add(endTurnButton);
 
 
         return panel;
@@ -168,7 +188,37 @@ public class DrawingAppFrame extends JFrame {
         }
     }
 
+    /**
+     * Takes the data from a drawing action and displays it on the canvas
+     * @param data the drawing data to display
+     */
+    public void drawFromData(DrawData data) {
+        Graphics2D g2 = drawingPanel.getCanvasImage().createGraphics();
+
+        // Set colour and thickness
+        g2.setColor(Color.decode(data.colourHex));
+        g2.setStroke(new BasicStroke(data.thickness));
+
+        // Draws the line from data coordinates
+        g2.drawLine(data.x1, data.y1, data.x2, data.y2);
+        drawingPanel.repaint();
+    }
+
+
     private void setCurrentColor(Color color) {
         currentColor = color;
+    }
+    /**
+     * Updates the players turn, enabling/disabling drawing
+     * @param isTurn true if it's their turn
+     */
+    public void setTurn(boolean isTurn) {
+        this.isTurn = isTurn;
+        drawingPanel.setDrawingEnabled(isTurn);
+        // disable end turn button when not their turn
+        endTurnButton.setEnabled(isTurn);
+        if (isTurn) {
+            JOptionPane.showMessageDialog(this, "It's your turn to draw!");
+        }
     }
 }
