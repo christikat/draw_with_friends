@@ -7,8 +7,11 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.Base64;
 
 /**
  * The main app window (JFrame)
@@ -17,18 +20,28 @@ public class DrawingAppFrame extends JFrame {
 
     private DrawingPanel drawingPanel;
     private JPanel controlPanel;
+    private JList<String> userList;
+    private DefaultListModel<String> userListModel;
 
     // current drawing settings
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
     private DrawTools currentTool;
-    JButton endTurnButton;
+
     private boolean isTurn = false;
     private final ClientConnection connection;
+
+    private JSplitPane splitPane;
+    private JButton endTurnButton;
+    private JMenuItem openItem; // so we can enable/disable
+
+    private final int COLLAPSED_LIST_LOCATION = 2000; // hides it
+    private final int EXPANDED_LIST_LOCATION = 1200;
 
     public DrawingAppFrame(ClientConnection connection) {
         super("Draw With Friends"); // window title
         this.connection = connection;
+
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1500, 1000);
         setLocationRelativeTo(null); // center window
@@ -37,43 +50,69 @@ public class DrawingAppFrame extends JFrame {
         // menu bar for file actions
         createMenuBar();
 
-        // create the canvas
+        // left side content (canvas, color panel etc)
+        JPanel leftMainPanel = new JPanel(new BorderLayout());
+
+        // control panel
+        controlPanel = createFloatingControls();
+        leftMainPanel.add(controlPanel, BorderLayout.PAGE_START);
+
+        // canvas
+        JPanel centerPanel = createCanvasArea();
+        leftMainPanel.add(centerPanel, BorderLayout.CENTER);
+
+        // user list
+        JScrollPane userListScroll = createUserListScroll();
+
+        // build
+        splitPane = new JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT,
+                leftMainPanel,
+                userListScroll);
+
+        splitPane.setEnabled(false); // disable resizing
+        splitPane.setDividerSize(0); // no visible divider
+        splitPane.setDividerLocation(EXPANDED_LIST_LOCATION); // start expanded
+
+        add(splitPane, BorderLayout.CENTER);
+    }
+
+    private JPanel createCanvasArea() {
+        JPanel container = new JPanel(new BorderLayout());
+
+        // color panel
+        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor);
+        JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        colourContainer.add(colourPanel);
+        container.add(colourContainer, BorderLayout.LINE_START);
+
+        // drawing panel
         drawingPanel = new DrawingPanel();
         drawingPanel.setBackground(Color.WHITE);
-        // supply for color and thickness
-        drawingPanel.setDrawingAttributes(
-            () -> currentColor,
-            () -> brushSize
-        );
-        drawingPanel.setCurrentTool(new Pencil(()-> currentColor, ()-> brushSize, connection));
+        drawingPanel.setDrawingAttributes( // supplying the color and thickness
+                () -> currentColor,
+                () -> brushSize);
+        drawingPanel.setCurrentTool(new Pencil(() -> currentColor, () -> brushSize, connection));
 
-        // canvas container to set boarder
         JPanel canvasContainer = new JPanel(new BorderLayout());
         canvasContainer.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         canvasContainer.setBackground(Color.DARK_GRAY);
         canvasContainer.add(drawingPanel, BorderLayout.CENTER);
-        add(canvasContainer, BorderLayout.CENTER);
 
-        //Add colour palette panel on the left
-        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor); // function to update colour
-        JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        colourContainer.add(colourPanel);
-        add(colourContainer, BorderLayout.LINE_START);
+        container.add(canvasContainer, BorderLayout.CENTER);
 
-        // create the control panel
-        controlPanel = createFloatingControls();
-        add(controlPanel, BorderLayout.PAGE_START);
+        return container;
     }
 
     /**
      * Creates the floating control panel
+     * 
      * @return the control panel
-     * TODO: Make them able to move around
      */
     private JPanel createFloatingControls() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5)); // left aligned, 10px padding
-        panel.setOpaque(false);                   // transparent
-        panel.setBounds(10, 10, 400 ,50); // top-left
+        panel.setOpaque(false); // transparent
+        panel.setBounds(10, 10, 400, 50); // top-left
 
         // color picker
         JButton colorButton = new JButton("Color");
@@ -84,7 +123,6 @@ public class DrawingAppFrame extends JFrame {
             }
         });
         panel.add(colorButton);
-
 
         // thickness chooser
         panel.add(new JLabel("Thickness"));
@@ -97,23 +135,26 @@ public class DrawingAppFrame extends JFrame {
         clearButton.addActionListener(e -> drawingPanel.clearCanvas());
         panel.add(clearButton);
 
-
+        // pencil
         JButton pencilButton = new JButton("Pencil");
         pencilButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Pencil(()-> currentColor, ()-> brushSize, connection)));
+                new Pencil(() -> currentColor, () -> brushSize, connection)));
         panel.add(pencilButton);
 
+        // line
         JButton lineButton = new JButton("Line");
         lineButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Line(()-> currentColor, ()-> brushSize, connection)));
+                new Line(() -> currentColor, () -> brushSize, connection)));
         panel.add(lineButton);
 
+        // end turn
         endTurnButton = new JButton("End Turn");
         endTurnButton.setEnabled(false);
 
         endTurnButton.addActionListener(e -> {
             // Prevent sending when it's not their turn
-            if (!isTurn) return;
+            if (!isTurn)
+                return;
 
             setTurn(false);
             if (connection != null) {
@@ -122,6 +163,18 @@ public class DrawingAppFrame extends JFrame {
         });
         panel.add(endTurnButton);
 
+        // toggle user list
+        JButton toggleListButton = new JButton("Hide Players List");
+        toggleListButton.addActionListener(e -> {
+            if (splitPane.getDividerLocation() == EXPANDED_LIST_LOCATION) {
+                splitPane.setDividerLocation(COLLAPSED_LIST_LOCATION);
+                toggleListButton.setText("Show Players List");
+            } else {
+                splitPane.setDividerLocation(EXPANDED_LIST_LOCATION);
+                toggleListButton.setText("Hide Players List");
+            }
+        });
+        panel.add(toggleListButton);
 
         return panel;
     }
@@ -133,8 +186,9 @@ public class DrawingAppFrame extends JFrame {
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
 
-        JMenuItem openItem  = new JMenuItem("Open");
-        openItem.addActionListener(e->openImage());
+        openItem = new JMenuItem("Open");
+        openItem.addActionListener(e -> openImage());
+        openItem.setEnabled(false); // disabled until it's our turn
         fileMenu.add(openItem);
 
         JMenuItem saveItem = new JMenuItem("Save");
@@ -147,6 +201,36 @@ public class DrawingAppFrame extends JFrame {
 
         menuBar.add(fileMenu);
         setJMenuBar(menuBar);
+    }
+
+    /**
+     * A collapsible user list panel to show active users
+     */
+    private JScrollPane createUserListScroll() {
+        userListModel = new DefaultListModel<>();
+        userList = new JList<>(userListModel);
+
+        // allow horizontal scrolling
+        JScrollPane scrollPane = new JScrollPane(userList);
+        scrollPane.setHorizontalScrollBarPolicy(
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+
+        scrollPane.setMinimumSize(new Dimension(50, getHeight()));
+        return scrollPane;
+    }
+
+    /**
+     * [SERVER] Updates the user list with the current active users
+     * 
+     * @param names
+     */
+    public void updateUserList(String[] names) {
+        userListModel.clear();
+        for (String name : names) {
+            userListModel.addElement(name);
+        }
     }
 
     /**
@@ -163,33 +247,73 @@ public class DrawingAppFrame extends JFrame {
             try {
                 BufferedImage image = drawingPanel.getCanvasImage();
                 ImageIO.write(image, "png", file);
-                JOptionPane.showMessageDialog(this, "Saved to " + file.getAbsolutePath(), "Save Successful", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Saved to " + file.getAbsolutePath(), "Save Successful",
+                        JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception exception) {
                 exception.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Error saving file: " + exception.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error saving file: " + exception.getMessage(), "Save Error",
+                        JOptionPane.ERROR_MESSAGE);
             }
         }
     }
+
     /**
      * Opens an image and loads it onto the canvas
      */
     private void openImage() {
         JFileChooser fileChooser = new JFileChooser();
-        int userChoice = fileChooser.showOpenDialog(this); // "this" is the parent window
+        fileChooser.setDialogTitle("Open an Image");
 
+        int userChoice = fileChooser.showOpenDialog(this); // "this" is the parent window
         if (userChoice == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
             try {
-                //add image to canvas
-                drawingPanel.setCanvasImage(ImageIO.read(file));
+                BufferedImage img = ImageIO.read(file);
+                if (img != null) {
+                    drawingPanel.setCanvasImage(img); // set local canvas
+
+                    String base64 = encodeToBase64(img);
+                    connection.send("LOADIMG " + base64); // send to server
+                }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error loading image: " + e.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
     /**
+     * Encodes a BufferedImage to a Base64 string
+     * 
+     * @param image the image to encode
+     * @return the Base64 encoded string
+     * @throws IOException
+     */
+    private String encodeToBase64(BufferedImage image) throws IOException {
+        // easteregg: first thing imma load is a trackhawk... source Big30
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", baos);
+        return Base64.getEncoder().encodeToString(baos.toByteArray());
+    }
+
+    public void loadImageFromBase64(String base64) {
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64);
+            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+            BufferedImage img = ImageIO.read(bais);
+            if (img != null) {
+                drawingPanel.setCanvasImage(img);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
      * Takes the data from a drawing action and displays it on the canvas
+     * 
      * @param data the drawing data to display
      */
     public void drawFromData(DrawData data) {
@@ -204,12 +328,13 @@ public class DrawingAppFrame extends JFrame {
         drawingPanel.repaint();
     }
 
-
     private void setCurrentColor(Color color) {
         currentColor = color;
     }
+
     /**
      * Updates the players turn, enabling/disabling drawing
+     * 
      * @param isTurn true if it's their turn
      */
     public void setTurn(boolean isTurn) {
@@ -217,6 +342,8 @@ public class DrawingAppFrame extends JFrame {
         drawingPanel.setDrawingEnabled(isTurn);
         // disable end turn button when not their turn
         endTurnButton.setEnabled(isTurn);
+        openItem.setEnabled(isTurn); // only can open a image if its your turn
+
         if (isTurn) {
             JOptionPane.showMessageDialog(this, "It's your turn to draw!");
         }

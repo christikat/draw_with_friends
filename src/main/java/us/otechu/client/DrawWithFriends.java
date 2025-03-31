@@ -7,7 +7,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 
-
 /**
  * DrawWithFriends
  */
@@ -15,6 +14,9 @@ public class DrawWithFriends extends JFrame {
     // true when client gui is ready for server messages
     private static boolean isReady = false;
     private static DrawingAppFrame frame;
+    private static ClientConnection connection;
+
+    private static volatile String nameResult = ""; // used to check if name is taken
 
     private static void handleServerMessage(String msg) {
         // Notifies player server is full, and closes.
@@ -23,49 +25,95 @@ public class DrawWithFriends extends JFrame {
             System.exit(0);
         }
 
-        // Prevents messages from trying to update the GUI when not ready
-        if (!isReady) {
-            System.out.println("Client GUI not loaded..");
+        // if server rejects username, re-prompt or close
+        if (msg.equals("NAMEINUSE")) {
+            nameResult = "NAMEINUSE";
             return;
         }
 
-        // When player's turn, allow player to draw
-        if (msg.equals("TURN")) {
-            SwingUtilities.invokeLater(() -> {
-                frame.setTurn(true);
-            });
+        // if server accepts username, notify client
+        if (msg.startsWith("JOINED ")) {
+            nameResult = "JOINED";
+            return;
+        }
+
+        // parse user list, drawing data, etc.
+        if (msg.startsWith("USERLIST ")) {
+            String list = msg.substring("USERLIST ".length());
+            String[] names = list.split(",");
+            if (frame != null) {
+                SwingUtilities.invokeLater(() -> frame.updateUserList(names));
+            }
         } else if (msg.startsWith("DRAW ")) {
-            // handle incoming drawing data from others
-            String json = msg.substring(5); // remove "DRAW "
-            // Convert json string to DrawData object
+            String json = msg.substring(5);
             DrawData data = new Gson().fromJson(json, DrawData.class);
-            SwingUtilities.invokeLater(() -> {
-                // Draws to the canvas
-                frame.drawFromData(data);
-            });
-
-
+            if (frame != null) {
+                SwingUtilities.invokeLater(() -> frame.drawFromData(data));
+            }
+        } else if (msg.startsWith("LOADIMG ")) {
+            // base64 image
+            String base64 = msg.substring(8);
+            if (frame != null) {
+                SwingUtilities.invokeLater(() -> frame.loadImageFromBase64(base64));
+            }
+        } else if (msg.equals("TURN")) {
+            if (frame != null) {
+                SwingUtilities.invokeLater(() -> frame.setTurn(true));
+            }
         }
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-                ClientConnection connection = new ClientConnection(DrawWithFriends::handleServerMessage);
-            // Create a new instance
+                connection = new ClientConnection(DrawWithFriends::handleServerMessage);
+
+                // repeatedly prompt for username until success or user quits
+                while (true) {
+                    nameResult = "";
+                    String username = JOptionPane.showInputDialog(null,
+                            "Enter username:", "Login",
+                            JOptionPane.QUESTION_MESSAGE);
+                    if (username == null || username.trim().isEmpty()) {
+                        System.exit(0);
+                    }
+                    connection.send("JOIN " + username.trim());
+
+                    // wait up to 5 seconds for either NAMEINUSE or JOINED
+                    boolean done = false;
+                    for (int i = 0; i < 50; i++) {
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt(); // restore interrupted status
+                        }
+                        if (nameResult.equals("NAMEINUSE")) {
+                            JOptionPane.showMessageDialog(null,
+                                    "Username already in use. Please try again.",
+                                    "Duplicate Username",
+                                    JOptionPane.WARNING_MESSAGE);
+                            break; // break the for loop, re-prompt
+                        } else if (nameResult.equals("JOINED")) {
+                            done = true; // success
+                            break;
+                        }
+                    }
+                    if (done)
+                        break;
+                }
+
+                // Create a new instance
                 frame = new DrawingAppFrame(connection);
                 frame.setVisible(true);
 
                 // Set ready to true when GUI is set up and visible
                 isReady = true;
-
-                //Notify the server client is ready for drawing
                 connection.send("READY");
 
                 // Handle disconnect when window closes
                 frame.addWindowListener(new WindowAdapter() {
                     public void windowClosing(WindowEvent e) {
-                       connection.disconnect();
+                        connection.disconnect();
                     }
                 });
 
