@@ -1,5 +1,7 @@
 package us.otechu.client.ui;
 
+import us.otechu.client.DrawData;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -18,6 +20,8 @@ public class DrawingPanel extends JPanel {
 
     private int prevX, prevY;
     private boolean drawing;
+    /** Disables ability to draw when false */
+    private boolean drawingEnabled = false;
 
     // supply the color and thickness
     private Supplier<Color> colorSupplier;
@@ -31,7 +35,7 @@ public class DrawingPanel extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (currentTool != null) {
+                if (currentTool != null && drawingEnabled) {
                     currentTool.onMousePressed(e, g2);
                     repaint();
                 }
@@ -39,7 +43,7 @@ public class DrawingPanel extends JPanel {
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                if (currentTool != null) {
+                if (currentTool != null && drawingEnabled) {
                     currentTool.onMouseReleased(e, g2);
                     repaint();
                 }
@@ -49,7 +53,7 @@ public class DrawingPanel extends JPanel {
         addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (currentTool != null) {
+                if (currentTool != null && drawingEnabled) {
                     currentTool.onMouseDragged(e, g2);
                     repaint();
                 }
@@ -149,5 +153,9 @@ public class DrawingPanel extends JPanel {
 
     public void setCurrentTool(DrawTools tool) {
         this.currentTool = tool;
+    }
+
+    public void setDrawingEnabled(boolean enabled) {
+        this.drawingEnabled = enabled;
     }
 }

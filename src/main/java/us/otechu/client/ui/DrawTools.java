@@ -1,5 +1,9 @@
 package us.otechu.client.ui;
 
+import com.google.gson.Gson;
+import us.otechu.client.ClientConnection;
+import us.otechu.client.DrawData;
+
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.util.function.Supplier;
@@ -21,10 +25,12 @@ class Pencil implements DrawTools {
     private int prevX, prevY;
     private final Supplier<Color> colorSupplier;
     private final Supplier<Integer> thicknessSupplier;
+    private final ClientConnection connection;
 
-    public Pencil(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier) {
+    public Pencil(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
         this.colorSupplier = colorSupplier;
         this.thicknessSupplier = thicknessSupplier;
+        this.connection = connection;
     }
 
     @Override
@@ -45,6 +51,13 @@ class Pencil implements DrawTools {
 
         // Draws small line segement
         g2.drawLine(prevX, prevY, x, y);
+
+
+        // Send data for new line to the server to update other players
+        DrawData data = new DrawData(prevX, prevY, x, y, colorSupplier.get(), thicknessSupplier.get());
+        String json = new Gson().toJson(data);
+        connection.send("DRAW " + json);
+
         prevX = x;
         prevY = y;
     }
@@ -76,10 +89,12 @@ class Line implements  DrawTools {
     private boolean isDragging = false;
     private final Supplier<Color> colorSupplier;
     private final Supplier<Integer> thicknessSupplier;
+    private final ClientConnection connection;
 
-    public Line(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier) {
+    public Line(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
         this.colorSupplier = colorSupplier;
         this.thicknessSupplier = thicknessSupplier;
+        this.connection = connection;
     }
 
     @Override
@@ -104,8 +119,13 @@ class Line implements  DrawTools {
         g2.setStroke(new BasicStroke(thicknessSupplier.get()));
         g2.setColor(colorSupplier.get());
         // Draw the final line when released
-        g2.drawLine(x1, y1, e.getX(), e.getY());
+        g2.drawLine(x1, y1, x2, y2);
         isDragging = false;
+
+        // Send data for new line to the server to update other players
+        DrawData data = new DrawData(x1, y1, x2, y2, colorSupplier.get(), thicknessSupplier.get());
+        String json = new Gson().toJson(data);
+        connection.send("DRAW " + json);
     }
     /**
      * Draws a preview of the line while dragging.
