@@ -66,11 +66,6 @@ public class DrawingPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
-        // if theres no canvas or the window was resized, create a new canvas
-//        if (canvasImage == null || canvasImage.getWidth() != getWidth() || canvasImage.getHeight() != getHeight()) {
-//            createCanvasImage();
-//        }
-
         if (canvasImage == null) {
           createCanvasImage();
         }
