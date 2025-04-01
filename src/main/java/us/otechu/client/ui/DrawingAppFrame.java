@@ -26,7 +26,6 @@ public class DrawingAppFrame extends JFrame {
     // current drawing settings
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
-    private DrawTools currentTool;
 
     private boolean isTurn = false;
     private final ClientConnection connection;
@@ -146,6 +145,12 @@ public class DrawingAppFrame extends JFrame {
         lineButton.addActionListener(e -> drawingPanel.setCurrentTool(
                 new Line(() -> currentColor, () -> brushSize, connection)));
         panel.add(lineButton);
+
+        // rectangle
+        JButton rectButton = new JButton("Rectangle");
+        rectButton.addActionListener(e -> drawingPanel.setCurrentTool(
+                new Rectangle(() -> currentColor, () -> brushSize, connection)));
+        panel.add(rectButton);
 
         // end turn
         endTurnButton = new JButton("End Turn");
@@ -323,8 +328,26 @@ public class DrawingAppFrame extends JFrame {
         g2.setColor(Color.decode(data.colourHex));
         g2.setStroke(new BasicStroke(data.thickness));
 
+        // Use the appropriate method for each shape
+        switch (data.shape) {
+            case "pencil":
+            case "line":
+                g2.drawLine(data.x1, data.y1, data.x2, data.y2);
+                break;
+            case "rect":
+                int rx = Math.min(data.x1, data.x2);
+                int ry = Math.min(data.y1, data.y2);
+                int rw = Math.abs(data.x2 - data.x1);
+                int rh = Math.abs(data.y2 - data.y1);
+                g2.drawRect(rx, ry, rw, rh);
+                break;
+            default:
+                System.out.println("Error: invalid shape - " + data.shape);
+                break;
+        }
+
         // Draws the line from data coordinates
-        g2.drawLine(data.x1, data.y1, data.x2, data.y2);
+//        g2.drawLine(data.x1, data.y1, data.x2, data.y2);
         drawingPanel.repaint();
     }
 

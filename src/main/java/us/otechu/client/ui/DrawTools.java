@@ -54,7 +54,7 @@ class Pencil implements DrawTools {
 
 
         // Send data for new line to the server to update other players
-        DrawData data = new DrawData(prevX, prevY, x, y, colorSupplier.get(), thicknessSupplier.get());
+        DrawData data = new DrawData(prevX, prevY, x, y, colorSupplier.get(), thicknessSupplier.get(), "pencil");
         String json = new Gson().toJson(data);
         connection.send("DRAW " + json);
 
@@ -123,7 +123,7 @@ class Line implements  DrawTools {
         isDragging = false;
 
         // Send data for new line to the server to update other players
-        DrawData data = new DrawData(x1, y1, x2, y2, colorSupplier.get(), thicknessSupplier.get());
+        DrawData data = new DrawData(x1, y1, x2, y2, colorSupplier.get(), thicknessSupplier.get(), "line");
         String json = new Gson().toJson(data);
         connection.send("DRAW " + json);
     }
@@ -135,6 +135,73 @@ class Line implements  DrawTools {
             g2.setStroke(new BasicStroke(thicknessSupplier.get()));
             g2.setColor(colorSupplier.get());
             g2.drawLine(x1, y1, x2, y2);
+        }
+    }
+}
+/**
+ * Tool for drawing rectangles, click and drag
+ */
+class Rectangle implements DrawTools {
+    private int x1, y1, x2, y2;
+    private boolean isDragging = false;
+    private final Supplier<Color> colorSupplier;
+    private final Supplier<Integer> thicknessSupplier;
+    private final ClientConnection connection;
+
+    Rectangle(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
+        this.colorSupplier = colorSupplier;
+        this.thicknessSupplier = thicknessSupplier;
+        this.connection = connection;
+    }
+
+    @Override
+    public void onMousePressed(MouseEvent e, Graphics2D g2) {
+        x1 = e.getX();
+        y1 = e.getY();
+        x2 = e.getX();
+        y2 = e.getY();
+        isDragging = true;
+    }
+
+    @Override
+    public void onMouseDragged(MouseEvent e, Graphics2D g2) {
+        x2 = e.getX();
+        y2 = e.getY();
+    }
+
+    @Override
+    public void onMouseReleased(MouseEvent e, Graphics2D g2) {
+        isDragging = false;
+        g2.setStroke(new BasicStroke(thicknessSupplier.get()));
+        g2.setColor(colorSupplier.get());
+
+        // Get the top left corner (x,y)
+        int x = Math.min(x1, x2);
+        int y = Math.min(y1, y2);
+
+        //Make sure width and height are positive
+        int width = Math.abs(x2 - x1);
+        int height = Math.abs(y2 - y1);
+
+        g2.drawRect(x, y, width, height);
+
+        DrawData data = new DrawData(x, y, x + width, y + height, colorSupplier.get(), thicknessSupplier.get(), "rect");
+        String json = new Gson().toJson(data);
+        connection.send("DRAW " + json);
+    }
+
+    @Override
+    public void preview(Graphics2D g2) {
+        if (isDragging) {
+            g2.setStroke(new BasicStroke(thicknessSupplier.get()));
+            g2.setColor(colorSupplier.get());
+
+            int x = Math.min(x1, x2);
+            int y = Math.min(y1, y2);
+            int width = Math.abs(x2 - x1);
+            int height = Math.abs(y2 - y1);
+
+            g2.drawRect(x, y, width, height);
         }
     }
 }

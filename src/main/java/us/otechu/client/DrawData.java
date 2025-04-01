@@ -9,6 +9,8 @@ public class DrawData {
     public int x1, y1, x2, y2;
     public int thickness;
     public String colourHex;
+    /** The shape to draw based on tool used (line, pencil, rect, circle)*/
+    public String shape;
 
     /**
      * Constructs a DrawData object for a drawing action.
@@ -20,13 +22,14 @@ public class DrawData {
      * @param colour    The color of the stroke
      * @param thickness The stroke thickness
      */
-    public DrawData(int x1, int y1, int x2, int y2, Color colour, int thickness) {
+    public DrawData(int x1, int y1, int x2, int y2, Color colour, int thickness, String shape) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
         this.y2 = y2;
         this.colourHex = colorToHex(colour);
         this.thickness = thickness;
+        this.shape = shape;
     }
 
     /**
