@@ -16,17 +16,14 @@ public class DrawingServer {
     /** Max number of players */
     public final static int MAX_CLIENTS = 4;
 
-    /** Thread safe **/
-    private final List<String> drawHistory = Collections.synchronizedList(new ArrayList<>()); // list of draw data
-                                                                                              // strings
-    private final List<ClientHandler> clients = new CopyOnWriteArrayList<>(); // list of client handlers
-    private final Set<String> activeUsernames = Collections.synchronizedSet(new HashSet<>()); // set of active usernames
+    // thread safe collections
+    private final List<String> drawHistory = Collections.synchronizedList(new ArrayList<>());
+    private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
+    private final Set<String> activeUsernames = Collections.synchronizedSet(new HashSet<>());
 
-    /**
-     * Index of current players turn (used to index clients list)
-     * Shared variable - Ensure thread safety!!
-     */
-    private int turnIndex = 0;
+    // the index of the client whose turn it is
+    // -1 means no one is playing
+    private int turnIndex = -1;
 
     /**
      * Starts server, listens for incoming connections.
@@ -52,7 +49,7 @@ public class DrawingServer {
                 clients.add(handler);
 
                 // Start thread for new client
-                new Thread(handler, "Handler Thread").start();
+                new Thread(handler, "ClientHandler Thread").start();
             }
 
         } catch (IOException e) {
@@ -93,7 +90,6 @@ public class DrawingServer {
      * Broadcasts the current user list to all clients.
      */
     public synchronized void broadcastUserList() {
-        // compile a list of clients usernames
         List<String> names = new ArrayList<>();
         for (ClientHandler c : clients) {
             if (c.username != null) {
@@ -105,78 +101,93 @@ public class DrawingServer {
     }
 
     /**
-     * Update the client that it's their turn based on the turn index
+     * Notifies the client at turnIndex that it is their turn.
      */
     public synchronized void setClientTurn() {
-        if (turnIndex >= clients.size()) {
-            turnIndex = 0;
+        if (turnIndex < 0 || turnIndex >= clients.size()) {
+            turnIndex = -1;
+            return;
         }
-        if (clients.isEmpty()) return; // no clients connected
-
-        // broadcast
-        ClientHandler currentClient = clients.get(turnIndex);
-        currentClient.sendMessage("TURN"); // notify current client it's their turn
-        log("Current turn: " + (currentClient.username != null ? currentClient.username : "index " + turnIndex));
+        ClientHandler current = clients.get(turnIndex);
+        if (current != null) {
+            current.sendMessage("TURN");
+            log("Current turn: " + (current.username != null ? current.username : ("index " + turnIndex)));
+        }
     }
 
     /**
      * Update to next client's turn.
      */
     public synchronized void updateTurn() {
-        if (clients.isEmpty()) return;
+        // no clients? no turns.
+        if (clients.isEmpty()) {
+            turnIndex = -1;
+            return;
+        }
 
-        for (int i = 1; i <= clients.size(); i++) {
-            int next = (turnIndex + i) % clients.size();
-            if (clients.get(next).getIsReady()) {
-                turnIndex = next;
-                break; // found next player who is ready
+        // ensure its within bounds
+        if (turnIndex < 0 || turnIndex >= clients.size()) {
+            turnIndex = 0;
+        }
+
+        // move to next client
+        turnIndex = (turnIndex + 1) % clients.size();
+
+        // find fully connected player
+        int size = clients.size();
+        for (int i = 0; i < size; i++) {
+            int candidate = (turnIndex + i) % size;
+            ClientHandler ch = clients.get(candidate);
+
+            if (ch.username != null && ch.getIsReady()) {
+                turnIndex = candidate;
+                setClientTurn(); // notify its their turn
+                return;
             }
         }
-        setClientTurn();
+
+        // if we get here, no ready clients exist
+        turnIndex = -1;
     }
 
     /**
      * Get the client whose turn it is
      */
     public ClientHandler getCurrentClientTurn() {
-        if (turnIndex < clients.size()) {
-            return clients.get(turnIndex);
+        // return null if turnIndex is invalid
+        if (turnIndex < 0 || turnIndex >= clients.size()) {
+            return null;
         }
-        return null;
+        return clients.get(turnIndex);
     }
 
     /**
-     * Removes a client from list, and handles updating turn index
+     * Removes a client from the server, and updates turnIndex if necessary.
      * 
      * @param handler the client handler to remove
      */
     public void removeClient(ClientHandler handler) {
-        clients.remove(handler);
+        // find them first
+        int removedIndex = clients.indexOf(handler);
+        if (removedIndex == -1)
+            return; // not found
 
+        clients.remove(handler);
         if (handler.username != null) {
             removeUsername(handler.username);
         }
 
         if (clients.isEmpty()) {
-            turnIndex = 0;
+            turnIndex = -1;
             log("No clients connected");
         } else {
-            int oldIndex = turnIndex;
-            int removedIndex = oldIndex; // IF we find a match
-
-            for (int i = 0; i < clients.size(); i++) {
-                if (clients.get(i) == handler) {
-                    removedIndex = i;
-                    break;
-                }
-            }
-
-            // if the removed client was the current turn player
+            // if the removed client was the turn holder
             if (removedIndex == turnIndex) {
-                turnIndex %= clients.size(); // wrap around to first player
-                setClientTurn();
+                // we'll pick the next available or -1 if none
+                turnIndex = -1;
+                updateTurn();
             } else if (removedIndex < turnIndex) {
-                // If the removed client was before the current turn player
+                // if a client before the current turn was removed, shift turnIndex back by 1
                 turnIndex--;
             }
         }
