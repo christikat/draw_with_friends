@@ -30,6 +30,7 @@ public class DrawingAppFrame extends JFrame {
     private final ClientConnection connection;
     private JSplitPane splitPane;
     private JButton endTurnButton;
+    private JButton clearButton;
     private JMenuItem openItem;
 
     private final int COLLAPSED_LIST_LOCATION = 2000; // hides it
@@ -125,8 +126,15 @@ public class DrawingAppFrame extends JFrame {
         panel.add(thicknessSpinner);
 
         // clear canvas
-        JButton clearButton = new JButton("Clear");
-        clearButton.addActionListener(e -> drawingPanel.clearCanvas());
+                                                                            clearButton = new JButton("Clear");
+        clearButton.setEnabled(false);
+
+        clearButton.addActionListener(e -> {
+            if (isTurn) {
+                drawingPanel.clearCanvas();
+                connection.send("CLEAR");
+            }
+        });
         panel.add(clearButton);
 
         // pencil
@@ -360,10 +368,17 @@ public class DrawingAppFrame extends JFrame {
         drawingPanel.setDrawingEnabled(isTurn);
         // disable end turn button when not their turn
         endTurnButton.setEnabled(isTurn);
+        clearButton.setEnabled(isTurn);
         openItem.setEnabled(isTurn); // only can open a image if its your turn
 
         if (isTurn) {
             JOptionPane.showMessageDialog(this, "It's your turn to draw!");
         }
+    }
+    /**
+     * Clear the canvas
+     */
+    public void clear() {
+        drawingPanel.clearCanvas();
     }
 }

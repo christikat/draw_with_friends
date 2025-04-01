@@ -209,6 +209,17 @@ public class DrawingServer {
             }
         }
     }
+    /**
+     * Sends message to clients to clear canvas
+     */
+    public void clearCanvas(ClientHandler sender) {
+        // send to all clients except sender
+        for (ClientHandler client : clients) {
+            if (client != sender) {
+                client.sendMessage("CLEAR");
+            }
+        }
+    }
 
     /**
      * Returns the current draw history.
@@ -225,6 +236,8 @@ public class DrawingServer {
     public void updateHistory(String drawData) {
         drawHistory.add(drawData);
     }
+
+    public void clearHistory() { drawHistory.clear(); }
 
     /**
      * Gets the number of connected clients.

@@ -150,6 +150,16 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+                if (line.equals("CLEAR")) {
+                    if (server.getCurrentClientTurn() == this) {
+                        server.clearHistory();
+                        server.clearCanvas(this);
+                    } else {
+                        sendMessage("Not your turn!");
+                    }
+                    continue;
+                }
+
                 // unrecognized message
                 server.log("Unknown message from " + username + ": " + line);
             }
