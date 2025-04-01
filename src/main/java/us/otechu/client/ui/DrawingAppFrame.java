@@ -17,98 +17,72 @@ import java.util.Base64;
  * The main app window (JFrame)
  */
 public class DrawingAppFrame extends JFrame {
+    private final ClientConnection connection;
+    private final String localUsername; // who the user is
 
     private DrawingPanel drawingPanel;
-    private JList<String> userList;
-    private DefaultListModel<String> userListModel;
 
     // current drawing settings
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
 
     private boolean isTurn = false;
-    private final ClientConnection connection;
-    private JSplitPane splitPane;
+
     private JButton endTurnButton;
     private JMenuItem openItem;
 
-    private final int COLLAPSED_LIST_LOCATION = 2000; // hides it
-    private final int EXPANDED_LIST_LOCATION = 1200;
+    // player list panels
+    private JPanel playersPanel;
+    private DefaultListModel<String> userListModel;
+    private JList<String> userList;
+    private boolean playersListVisible = true;
 
-    public DrawingAppFrame(ClientConnection connection) {
+    // track indexes from server
+    private int currentIndex = -1;
+    private int nextIndex = -1;
+
+    public DrawingAppFrame(ClientConnection connection, String localUsername) {
         super("Draw With Friends"); // window title
         this.connection = connection;
+        this.localUsername = localUsername;
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1500, 1000);
         setLocationRelativeTo(null); // center window
-        setResizable(false); // prevent resizing
+        setResizable(true);
+       
 
-        // menu bar for file actions
-        createMenuBar();
-
-        // left side content (canvas, color panel etc)
-        JPanel leftMainPanel = new JPanel(new BorderLayout());
-        JPanel controlPanel = createFloatingControls();
-        leftMainPanel.add(controlPanel, BorderLayout.PAGE_START);
-
-        // canvas
-        JPanel centerPanel = createCanvasArea();
-        leftMainPanel.add(centerPanel, BorderLayout.CENTER);
-
-        // user list
-        JScrollPane userListScroll = createUserListScroll();
-
-        // build
-        splitPane = new JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                leftMainPanel,
-                userListScroll);
-
-        splitPane.setEnabled(false); // disable resizing
-        splitPane.setDividerSize(0); // no visible divider
-        splitPane.setDividerLocation(EXPANDED_LIST_LOCATION); // start expanded
-        add(splitPane, BorderLayout.CENTER);
-    }
-
-    private JPanel createCanvasArea() {
-        JPanel container = new JPanel(new BorderLayout());
-        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor);
-
-        // color panel
-        JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        colourContainer.add(colourPanel);
-        container.add(colourContainer, BorderLayout.LINE_START);
-
-        // drawing panel
-        drawingPanel = new DrawingPanel();
-        drawingPanel.setBackground(Color.WHITE);
-        drawingPanel.setDrawingAttributes( // supplying the color and thickness
-                () -> currentColor,
-                () -> brushSize);
-        drawingPanel.setCurrentTool(new Pencil(() -> currentColor, () -> brushSize, connection));
-
-        JPanel canvasContainer = new JPanel(new BorderLayout());
-        canvasContainer.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        canvasContainer.setBackground(Color.DARK_GRAY);
-        canvasContainer.add(drawingPanel, BorderLayout.CENTER);
-
-        container.add(canvasContainer, BorderLayout.CENTER);
-
-        return container;
+        createMenuBar(); // file actions
+        initLayout(); // main layout
     }
 
     /**
-     * Creates the floating control panel
-     * 
-     * @return the control panel
+     * Creates the main layout of the app
      */
-    private JPanel createFloatingControls() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5)); // left aligned, 10px padding
-        panel.setOpaque(false); // transparent
-        panel.setBounds(10, 10, 400, 50); // top-left
+    private void initLayout() {
+        setLayout(new BorderLayout());
 
-        // color picker
+        JPanel topControls = createTopControls();
+        add(topControls, BorderLayout.NORTH);
+
+        // the center is the color panel + drawing panel
+        JPanel centerPanel = createCanvasArea();
+        add(centerPanel, BorderLayout.CENTER);
+
+        // right side -> players list
+        playersPanel = createPlayersPanel();
+        add(playersPanel, BorderLayout.EAST);
+    }
+
+    /**
+     * Creates the control panel for the drawing canvas.
+     * 
+     * @return the drawing panel
+     */
+    private JPanel createTopControls() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+
+        // color button
         JButton colorButton = new JButton("Color");
         colorButton.addActionListener(e -> {
             Color chosen = JColorChooser.showDialog(this, "Choose Brush Color", currentColor);
@@ -118,10 +92,10 @@ public class DrawingAppFrame extends JFrame {
         });
         panel.add(colorButton);
 
-        // thickness chooser
+        // thickness spinner
         panel.add(new JLabel("Thickness"));
         JSpinner thicknessSpinner = new JSpinner(new SpinnerNumberModel(brushSize, 1, 50, 1));
-        thicknessSpinner.addChangeListener(e -> brushSize = (int) thicknessSpinner.getValue()); // update brush size
+        thicknessSpinner.addChangeListener(e -> brushSize = (int) thicknessSpinner.getValue());
         panel.add(thicknessSpinner);
 
         // clear canvas
@@ -144,31 +118,87 @@ public class DrawingAppFrame extends JFrame {
         // end turn
         endTurnButton = new JButton("End Turn");
         endTurnButton.setEnabled(false);
-
         endTurnButton.addActionListener(e -> {
-            // Prevent sending when it's not their turn
             if (!isTurn)
                 return;
-
             setTurn(false);
-            if (connection != null) {
-                connection.send("ENDTURN");
-            }
+            connection.send("ENDTURN");
         });
         panel.add(endTurnButton);
 
-        // toggle user list
+        // toggle player list
         JButton toggleListButton = new JButton("Hide Players List");
         toggleListButton.addActionListener(e -> {
-            if (splitPane.getDividerLocation() == EXPANDED_LIST_LOCATION) {
-                splitPane.setDividerLocation(COLLAPSED_LIST_LOCATION);
-                toggleListButton.setText("Show Players List");
-            } else {
-                splitPane.setDividerLocation(EXPANDED_LIST_LOCATION);
+            playersListVisible = !playersListVisible;
+            if (playersListVisible) {
+                // re-add the panel to the layout
+                add(playersPanel, BorderLayout.EAST);
                 toggleListButton.setText("Hide Players List");
+            } else {
+                // remove the panel from the layout
+                remove(playersPanel);
+                toggleListButton.setText("Show Players List");
             }
+            
+            revalidate();
+            repaint();
         });
         panel.add(toggleListButton);
+
+        return panel;
+    }
+
+    /**
+     * Color Palate & Drawing Panel
+     * 
+     * @return JPanel with the drawing canvas and color palate
+     */
+    private JPanel createCanvasArea() {
+        JPanel container = new JPanel(new BorderLayout());
+
+        // color panel on the left
+        ColourPanel colourPanel = new ColourPanel(c -> currentColor = c);
+        JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        colourContainer.add(colourPanel);
+        container.add(colourContainer, BorderLayout.WEST);
+
+        // the drawing panel in the center
+        drawingPanel = new DrawingPanel();
+        drawingPanel.setBackground(Color.WHITE);
+        drawingPanel.setDrawingAttributes(() -> currentColor, () -> brushSize);
+        drawingPanel.setCurrentTool(new Pencil(() -> currentColor, () -> brushSize, connection));
+
+        // add some margin around it
+        JPanel canvasContainer = new JPanel(new BorderLayout());
+        canvasContainer.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        canvasContainer.add(drawingPanel, BorderLayout.CENTER);
+
+        container.add(canvasContainer, BorderLayout.CENTER);
+
+        return container;
+    }
+
+    /**
+     * Creates the players list panel
+     * 
+     * @return
+     */
+    private JPanel createPlayersPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+
+        JLabel titleLabel = new JLabel("Players List", SwingConstants.CENTER);
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        panel.add(titleLabel, BorderLayout.NORTH);
+
+        userListModel = new DefaultListModel<>();
+        userList = new JList<>(userListModel);
+        userList.setCellRenderer(new PlayerListRenderer(() -> currentIndex, () -> nextIndex, () -> localUsername));
+
+        JScrollPane scrollPane = new JScrollPane(userList);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        // set a preferred width
+        panel.setPreferredSize(new Dimension(250, getHeight()));
 
         return panel;
     }
@@ -198,32 +228,51 @@ public class DrawingAppFrame extends JFrame {
     }
 
     /**
-     * A collapsible user list panel to show active users
+     * Called by the server whenever we get
+     * "USERLIST name1,name2,name3|current|next"
+     * We'll parse out the name list + the indexes.
      */
-    private JScrollPane createUserListScroll() {
-        userListModel = new DefaultListModel<>();
-        userList = new JList<>(userListModel);
+    public void updateUserList(String userListMessage, String localUser) {
+        String[] parts = userListMessage.split("\\|");
+        // parts[0] => "name1,name2,name3"
+        // parts[1] => currentIndex as string
+        // parts[2] => nextIndex as string
+        if (parts.length < 3) {
+            // fallback if old format
+            updateUserListOld(parts[0]);
+            return;
+        }
 
-        // allow horizontal scrolling
-        JScrollPane scrollPane = new JScrollPane(userList);
-        scrollPane.setHorizontalScrollBarPolicy(
-                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setVerticalScrollBarPolicy(
-                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        // parse user names
+        String[] names = parts[0].split(",");
+        currentIndex = parseIndex(parts[1]);
+        nextIndex = parseIndex(parts[2]);
 
-        scrollPane.setMinimumSize(new Dimension(50, getHeight()));
-        return scrollPane;
-    }
-
-    /**
-     * [SERVER] Updates the user list with the current active users
-     * 
-     * @param names
-     */
-    public void updateUserList(String[] names) {
+        // update the model
         userListModel.clear();
         for (String name : names) {
             userListModel.addElement(name);
+        }
+    }
+
+    /**
+     * If for some reason there's a fallback scenario (shouldn't happen now),
+     * just fill t he list in black with no highlighting logic.
+     */
+    private void updateUserListOld(String commaSeparatedNames) {
+        currentIndex = -1;
+        nextIndex = -1;
+        userListModel.clear();
+        for (String name : commaSeparatedNames.split(",")) {
+            userListModel.addElement(name);
+        }
+    }
+
+    private int parseIndex(String s) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return -1; // invalid index
         }
     }
 
