@@ -19,21 +19,18 @@ import java.util.Base64;
 public class DrawingAppFrame extends JFrame {
 
     private DrawingPanel drawingPanel;
-    private JPanel controlPanel;
     private JList<String> userList;
     private DefaultListModel<String> userListModel;
 
     // current drawing settings
     private Color currentColor = Color.BLACK;
     private int brushSize = 5;
-    private DrawTools currentTool;
 
     private boolean isTurn = false;
     private final ClientConnection connection;
-
     private JSplitPane splitPane;
     private JButton endTurnButton;
-    private JMenuItem openItem; // so we can enable/disable
+    private JMenuItem openItem;
 
     private final int COLLAPSED_LIST_LOCATION = 2000; // hides it
     private final int EXPANDED_LIST_LOCATION = 1200;
@@ -52,9 +49,7 @@ public class DrawingAppFrame extends JFrame {
 
         // left side content (canvas, color panel etc)
         JPanel leftMainPanel = new JPanel(new BorderLayout());
-
-        // control panel
-        controlPanel = createFloatingControls();
+        JPanel controlPanel = createFloatingControls();
         leftMainPanel.add(controlPanel, BorderLayout.PAGE_START);
 
         // canvas
@@ -73,15 +68,14 @@ public class DrawingAppFrame extends JFrame {
         splitPane.setEnabled(false); // disable resizing
         splitPane.setDividerSize(0); // no visible divider
         splitPane.setDividerLocation(EXPANDED_LIST_LOCATION); // start expanded
-
         add(splitPane, BorderLayout.CENTER);
     }
 
     private JPanel createCanvasArea() {
         JPanel container = new JPanel(new BorderLayout());
+        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor);
 
         // color panel
-        ColourPanel colourPanel = new ColourPanel(this::setCurrentColor);
         JPanel colourContainer = new JPanel(new FlowLayout(FlowLayout.CENTER));
         colourContainer.add(colourPanel);
         container.add(colourContainer, BorderLayout.LINE_START);

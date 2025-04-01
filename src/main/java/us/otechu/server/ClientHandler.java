@@ -13,13 +13,13 @@ import java.net.Socket;
 public class ClientHandler implements Runnable {
     private final Socket socket;
     private final DrawingServer server;
-    BufferedReader input = null;
-    PrintWriter output = null;
+    private BufferedReader input;
+    private PrintWriter output;
 
-    /** True when client GUI is ready for server messages */
+    // true only after the client has fully loaded + sent READY message
     private boolean isReady = false;
 
-    String username = null; // clients username
+    public String username = null; // clients username
 
     /**
      * Constructor for ClientHandler.
@@ -44,10 +44,10 @@ public class ClientHandler implements Runnable {
     }
 
     /**
-     * Loop for handling messages from the client.
-     * Processes READY, DRAW, and ENDTURN messages.
+     * Checks if the client is ready.
+     * 
+     * @return true if the client is ready, false otherwise
      */
-
     public boolean getIsReady() {
         return isReady;
     }
@@ -58,7 +58,7 @@ public class ClientHandler implements Runnable {
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
 
-            // must receive username before anything else
+            // wait for JOIN message from client
             while (username == null) {
                 String line = input.readLine();
                 if (line == null) {
@@ -66,12 +66,10 @@ public class ClientHandler implements Runnable {
                     return;
                 }
 
-                // handles "JOIN" message, sent when client GUI is loaded
                 if (line.startsWith("JOIN ")) {
                     String proposedUsername = line.substring(5).trim();
                     if (proposedUsername.isEmpty() || server.isUsernameTaken(proposedUsername)) {
                         sendMessage("NAMEINUSE");
-                        continue; // bcuz we want to keep asking for a username
                     } else {
                         this.username = proposedUsername;
                         server.addUsername(this.username);
@@ -85,7 +83,7 @@ public class ClientHandler implements Runnable {
                 }
             }
 
-            // after the loop, username is set
+            // after username is set, wait for READY message
             while (!isReady) {
                 String line = input.readLine();
                 if (line == null) {
@@ -99,93 +97,90 @@ public class ClientHandler implements Runnable {
                     for (String d : server.getHistory()) {
                         sendMessage(d);
                     }
-                    server.broadcastUserList();
-                    // if they're the only user => they get the turn
-                    if (server.getNumClients() == 1) {
-                        server.setClientTurn();
+
+                    // recheck if theres no current turn holder
+                    if (server.getCurrentClientTurn() == null) {
+                        server.updateTurn();
                     }
+
+                    // server.broadcastUserList();
                     break;
                 }
             }
 
             // main loop
-            
-            while (true) {
-                String line = input.readLine();
-                if (line == null) {
-                    break;
+            String line;
+            while ((line = input.readLine()) != null) {
+                // if not ready, ignore
+                if (!isReady) {
+                    continue;
                 }
 
-                // Handles "READY" message, sent when client GUI is loaded
-                if (!isReady) {
-                    if (line.equals("READY")) {
-                        isReady = true;
-                        // sync canvas with current drawing
-                        for (String drawData : server.getHistory()) {
-                            output.println(drawData);
-                        }
-
-                        // If they are the only client - it's their turn
-                        if (server.getNumClients() == 1) {
-                            server.setClientTurn();
-                        }
+                // ENDTURN
+                if (line.equals("ENDTURN")) {
+                    // only the current turn holder can end their turn
+                    if (server.getCurrentClientTurn() == this) {
+                        server.log("Player " + username + " ended their turn.");
+                        server.updateTurn();
                     }
                     continue;
                 }
 
-                if (line.equals("ENDTURN")) {
-                    // Check if it's their turn
-                    if (server.getCurrentClientTurn() == this) {
-                        server.log("Player" + username + " ended their turn.");
-                        server.updateTurn();
-                    }
-                } else if (line.startsWith("DRAW")) {
-                    // Send the new drawing data to other clients, and store data in history
+                // DRAW
+                if (line.startsWith("DRAW ")) {
+                    // only current turn holder can draw
                     if (server.getCurrentClientTurn() == this) {
                         server.sendDrawData(this, line);
                         server.updateHistory(line);
                     } else {
                         sendMessage("Not your turn!");
                     }
-                } else if (line.startsWith("LOADIMG ")) {
-                    // restricted to current drawer
+                    continue;
+                }
+
+                // LOADIMG
+                if (line.startsWith("LOADIMG ")) {
+                    // only current turn holder can load an image
                     if (server.getCurrentClientTurn() == this) {
                         server.broadcastMessage(line);
-                        server.log("User" + username + " loaded image: " + line.substring(8));
+                        server.log("User " + username + " loaded an image.");
                     } else {
                         sendMessage("Not your turn!");
                     }
-                } else {
-                    server.log("Unknown message from " + username + ": " + line);
+                    continue;
                 }
+
+                // unrecognized message
+                server.log("Unknown message from " + username + ": " + line);
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // user disconnected
         } finally {
-            closeEverything();
-
+            closeAll();
             server.removeClient(this);
             server.log("Client disconnected: " + (username != null ? username : socket));
         }
     }
 
-    private void closeEverything() {
+    /**
+     * Closes all streams and the socket.
+     */
+    private void closeAll() {
         try {
             if (input != null)
                 input.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
+            // ignore
+        } 
         if (output != null)
             output.close();
-
         try {
             if (socket != null && !socket.isClosed())
                 socket.close();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // ignore
         }
+
     }
 }
