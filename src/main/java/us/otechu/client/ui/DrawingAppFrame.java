@@ -237,11 +237,6 @@ public class DrawingAppFrame extends JFrame {
         // parts[0] => "name1,name2,name3"
         // parts[1] => currentIndex as string
         // parts[2] => nextIndex as string
-        if (parts.length < 3) {
-            // fallback if old format
-            updateUserListOld(parts[0]);
-            return;
-        }
 
         // parse user names
         String[] names = parts[0].split(",");
@@ -256,18 +251,10 @@ public class DrawingAppFrame extends JFrame {
     }
 
     /**
-     * If for some reason there's a fallback scenario (shouldn't happen now),
-     * just fill t he list in black with no highlighting logic.
+     * Parses the index from the string
+     * @param s the string to parse
+     * @return the index, or -1 if invalid
      */
-    private void updateUserListOld(String commaSeparatedNames) {
-        currentIndex = -1;
-        nextIndex = -1;
-        userListModel.clear();
-        for (String name : commaSeparatedNames.split(",")) {
-            userListModel.addElement(name);
-        }
-    }
-
     private int parseIndex(String s) {
         try {
             return Integer.parseInt(s.trim());
