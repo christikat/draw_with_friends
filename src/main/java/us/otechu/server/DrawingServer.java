@@ -55,6 +55,15 @@ public class DrawingServer {
     }
 
     /**
+     * Clears the server canvas by filling it with white.
+     */
+    public void clearServerCanvas() {
+        // fill the entire region white
+        serverG2.setColor(Color.WHITE);
+        serverG2.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    /**
      * Starts server, listens for incoming connections.
      */
     public void startServer() {

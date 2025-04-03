@@ -142,6 +142,20 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
+                // CLEAR
+                if (line.equals("CLEAR")) {
+                    if (server.getCurrentClientTurn() == this) {
+                        server.clearServerCanvas(); // wipe server canvas
+                        // send blank canvas to all clients
+                        String blankBase64 = server.encodeCanvasToBase64(server.getServerCanvas());
+                        server.broadcastMessage("LOADIMG " + blankBase64);
+                        server.log("Player " + username + " cleared the canvas.");
+                    } else {
+                        sendMessage("Not your turn!");
+                    }
+                    continue;
+                }
+
                 // LOADIMG
                 if (line.startsWith("LOADIMG ")) {
                     // only current turn holder can load an image

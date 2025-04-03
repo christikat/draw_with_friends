@@ -100,7 +100,12 @@ public class DrawingAppFrame extends JFrame {
 
         // clear canvas
         JButton clearButton = new JButton("Clear");
-        clearButton.addActionListener(e -> drawingPanel.clearCanvas());
+        clearButton.addActionListener(e -> {
+            if (!isTurn) 
+                return;
+
+            connection.send("CLEAR");
+        });
         panel.add(clearButton);
 
         // pencil

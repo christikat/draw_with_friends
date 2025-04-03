@@ -148,17 +148,6 @@ public class DrawingPanel extends JPanel {
     }
 
     /**
-     * Clears the canvas
-     */
-    public void clearCanvas() {
-        if (g2 != null) {
-            g2.setColor(Color.WHITE);
-            g2.fillRect(0, 0, getWidth(), getHeight());
-            repaint();
-        }
-    }
-
-    /**
      * update the drawing attributes
      */
     public void setDrawingAttributes(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier) {
