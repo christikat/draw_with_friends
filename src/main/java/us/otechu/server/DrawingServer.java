@@ -1,11 +1,24 @@
 package us.otechu.server;
 
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import javax.imageio.ImageIO;
+
+import com.google.gson.Gson;
+
+import us.otechu.client.DrawData;
 
 /**
  * The main server for the drawing application.
@@ -16,6 +29,11 @@ public class DrawingServer {
     /** Max number of players */
     public final static int MAX_CLIENTS = 4;
 
+    private static final int CANVAS_WIDTH = 1500;
+    private static final int CANVAS_HEIGHT = 1000;
+    private BufferedImage serverCanvas;
+    private Graphics2D serverG2;
+
     // thread safe collections
     private final List<String> drawHistory = Collections.synchronizedList(new ArrayList<>());
     private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
@@ -24,6 +42,26 @@ public class DrawingServer {
     // the index of the client whose turn it is
     // -1 means no one is playing
     private int turnIndex = -1;
+
+    public DrawingServer() {
+        // create a single big image in memory
+        serverCanvas = new BufferedImage(CANVAS_WIDTH, CANVAS_HEIGHT, BufferedImage.TYPE_INT_RGB);
+        serverG2 = serverCanvas.createGraphics();
+        serverG2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // fill it white
+        serverG2.setColor(Color.WHITE);
+        serverG2.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    /**
+     * Clears the server canvas by filling it with white.
+     */
+    public void clearServerCanvas() {
+        // fill the entire region white
+        serverG2.setColor(Color.WHITE);
+        serverG2.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
 
     /**
      * Starts server, listens for incoming connections.
@@ -78,6 +116,74 @@ public class DrawingServer {
     }
 
     /**
+     * Applies a drawing action to the server canvas.
+     * 
+     * @param drawDataJson the JSON string containing drawing data
+     */
+    public void applyDrawAction(String drawDataJson) {
+        // parse the JSON into (x1, y1, x2, y2, color, thickness)
+        DrawData data = parseDrawJson(drawDataJson);
+
+        // then draw onto serverCanvas
+        serverG2.setColor(Color.decode(data.colourHex));
+        serverG2.setStroke(new BasicStroke(data.thickness));
+        serverG2.drawLine(data.x1, data.y1, data.x2, data.y2);
+    }
+
+    /**
+     * Applies a load image action to the server canvas.
+     * 
+     * @param base64 the base64 encoded image string
+     */
+    public void applyLoadImageAction(String base64) {
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64);
+            BufferedImage loaded = ImageIO.read(new ByteArrayInputStream(bytes));
+            if (loaded != null) {
+                serverG2.drawImage(loaded, 0, 0, null);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Returns the server canvas image.
+     * 
+     * @return the server canvas image
+     */
+    public BufferedImage getServerCanvas() {
+        return serverCanvas;
+    }
+
+    /**
+     * Encodes the server canvas image to a base64 string.
+     * 
+     * @param img the image to encode
+     * @return the base64 encoded string
+     */
+    public String encodeCanvasToBase64(BufferedImage img) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(img, "png", baos);
+            return Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    /**
+     * Parses the JSON string into a DrawData object.
+     * 
+     * @param json the JSON string to parse
+     * @return the parsed DrawData object
+     */
+    private DrawData parseDrawJson(String json) {
+        return new Gson().fromJson(json, DrawData.class);
+    }
+
+    /**
      * Removes a username from the active usernames list.
      * 
      * @param username
@@ -87,17 +193,40 @@ public class DrawingServer {
     }
 
     /**
-     * Broadcasts the current user list to all clients.
+     * Broadcasts the current players list to all clients as well as the server's
+     * turn index.
      */
     public synchronized void broadcastUserList() {
+        // create the list of usernames
         List<String> names = new ArrayList<>();
         for (ClientHandler c : clients) {
             if (c.username != null) {
                 names.add(c.username);
+            } else {
+                names.add("joining..."); // unknown clients
             }
         }
-        String listString = String.join(",", names);
-        broadcastMessage("USERLIST " + listString);
+        String nameString = String.join(",", names);
+
+        // current turn index
+        int current = turnIndex; // could be -1
+
+        // next index
+        int next = -1;
+        if (current != -1 && !clients.isEmpty()) {
+            int size = clients.size();
+            // search for next available player
+            for (int i = 1; i <= size; i++) {
+                int candidate = (current + i) % size;
+                ClientHandler ch = clients.get(candidate);
+                if (ch.username != null && ch.getIsReady()) {
+                    next = candidate;
+                    break;
+                }
+            }
+        }
+
+        broadcastMessage("USERLIST " + nameString + "|" + current + "|" + next);
     }
 
     /**
@@ -142,12 +271,14 @@ public class DrawingServer {
             if (ch.username != null && ch.getIsReady()) {
                 turnIndex = candidate;
                 setClientTurn(); // notify its their turn
+                broadcastUserList(); // update player list
                 return;
             }
         }
 
         // if we get here, no ready clients exist
         turnIndex = -1;
+        broadcastUserList(); // no valid turn holder
     }
 
     /**
@@ -192,7 +323,7 @@ public class DrawingServer {
             }
         }
 
-        broadcastUserList(); // broadcast updated user list
+        broadcastUserList(); // broadcast updated players list
     }
 
     /**

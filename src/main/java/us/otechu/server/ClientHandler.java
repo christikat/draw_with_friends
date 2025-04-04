@@ -1,5 +1,6 @@
 package us.otechu.server;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -76,7 +77,6 @@ public class ClientHandler implements Runnable {
 
                         sendMessage("JOINED " + this.username);
                         server.broadcastUserList();
-
                         server.log("User joined: " + this.username);
                         break; // exit the loop
                     }
@@ -94,16 +94,17 @@ public class ClientHandler implements Runnable {
                 if (line.equals("READY")) {
                     isReady = true;
                     // sync canvas
-                    for (String d : server.getHistory()) {
-                        sendMessage(d);
-                    }
+                    String fullBase64 = server.encodeCanvasToBase64(server.getServerCanvas());
+                    sendMessage("LOADIMG " + fullBase64);
 
                     // recheck if theres no current turn holder
                     if (server.getCurrentClientTurn() == null) {
                         server.updateTurn();
+                    } else {
+                        // still broadcast incase order changed
+                        server.broadcastUserList();
                     }
 
-                    // server.broadcastUserList();
                     break;
                 }
             }
@@ -130,8 +131,25 @@ public class ClientHandler implements Runnable {
                 if (line.startsWith("DRAW ")) {
                     // only current turn holder can draw
                     if (server.getCurrentClientTurn() == this) {
+                        // parse and apply
+                        String json = line.substring("DRAW ".length());
+                        server.applyDrawAction(json);
+
                         server.sendDrawData(this, line);
-                        server.updateHistory(line);
+                    } else {
+                        sendMessage("Not your turn!");
+                    }
+                    continue;
+                }
+
+                // CLEAR
+                if (line.equals("CLEAR")) {
+                    if (server.getCurrentClientTurn() == this) {
+                        server.clearServerCanvas(); // wipe server canvas
+                        // send blank canvas to all clients
+                        String blankBase64 = server.encodeCanvasToBase64(server.getServerCanvas());
+                        server.broadcastMessage("LOADIMG " + blankBase64);
+                        server.log("Player " + username + " cleared the canvas.");
                     } else {
                         sendMessage("Not your turn!");
                     }
@@ -142,6 +160,8 @@ public class ClientHandler implements Runnable {
                 if (line.startsWith("LOADIMG ")) {
                     // only current turn holder can load an image
                     if (server.getCurrentClientTurn() == this) {
+                        String base64 = line.substring("LOADIMG ".length());
+                        server.applyLoadImageAction(base64);
                         server.broadcastMessage(line);
                         server.log("User " + username + " loaded an image.");
                     } else {
@@ -182,7 +202,7 @@ public class ClientHandler implements Runnable {
                 input.close();
         } catch (IOException e) {
             // ignore
-        } 
+        }
         if (output != null)
             output.close();
         try {

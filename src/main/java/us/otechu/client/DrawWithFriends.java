@@ -17,6 +17,7 @@ public class DrawWithFriends extends JFrame {
     private static ClientConnection connection;
 
     private static volatile String nameResult = ""; // used to check if name is taken
+    private static String localUsername = ""; 
 
     private static void handleServerMessage(String msg) {
         // Notifies player server is full, and closes.
@@ -34,21 +35,21 @@ public class DrawWithFriends extends JFrame {
         // if server accepts username, notify client
         if (msg.startsWith("JOINED ")) {
             nameResult = "JOINED";
+            localUsername = msg.substring(7).trim(); // get username from server
             return;
         }
 
         // parse user list, drawing data, etc.
         if (msg.startsWith("USERLIST ")) {
-            String list = msg.substring("USERLIST ".length());
-            String[] names = list.split(",");
+            String data = msg.substring("USERLIST ".length());
             if (frame != null) {
-                SwingUtilities.invokeLater(() -> frame.updateUserList(names));
+                SwingUtilities.invokeLater(() -> frame.updateUserList(data, localUsername));
             }
         } else if (msg.startsWith("DRAW ")) {
             String json = msg.substring(5);
-            DrawData data = new Gson().fromJson(json, DrawData.class);
+            DrawData drawData = new Gson().fromJson(json, DrawData.class);
             if (frame != null) {
-                SwingUtilities.invokeLater(() -> frame.drawFromData(data));
+                SwingUtilities.invokeLater(() -> frame.drawFromData(drawData));
             }
         } else if (msg.startsWith("LOADIMG ")) {
             // base64 image
@@ -105,7 +106,7 @@ public class DrawWithFriends extends JFrame {
                 }
 
                 // Create a new instance
-                frame = new DrawingAppFrame(connection);
+                frame = new DrawingAppFrame(connection, localUsername);
                 frame.setVisible(true);
 
                 // Set ready to true when GUI is set up and visible
