@@ -161,8 +161,8 @@ public class DrawingPanel extends JPanel {
      * @param image the image to load onto the canvas
      */
     public void setCanvasImage(BufferedImage image) {
-        int w = image.getWidth();
-        int h = image.getHeight();
+        int w = canvasImage.getWidth();
+        int h = canvasImage.getHeight();
 
         // create new image
         canvasImage = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);

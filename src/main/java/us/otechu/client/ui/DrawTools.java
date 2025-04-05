@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import us.otechu.client.ClientConnection;
 import us.otechu.client.DrawData;
 
+import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.util.function.Supplier;
@@ -294,4 +295,44 @@ class Circle implements DrawTools {
             }
         }
     }
+}
+
+/**
+ * Tool for writing text onto the canvas
+ */
+class TextTool implements DrawTools {
+    private final Supplier<Color> colorSupplier;
+    private final Supplier<Integer> thicknessSupplier;
+    private final ClientConnection connection;
+
+    public TextTool(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
+        this.colorSupplier = colorSupplier;
+        this.thicknessSupplier = thicknessSupplier;
+        this.connection = connection;
+    }
+
+    @Override
+    public void onMousePressed(MouseEvent e, Graphics2D g2) {
+        // Pop up to get user input
+        String input = JOptionPane.showInputDialog("Enter text:");
+        if (input != null && !input.isEmpty()) {
+            g2.setColor(colorSupplier.get());
+            // Text size based on thickness supplier
+            g2.setFont(new Font("Arial", Font.PLAIN, thicknessSupplier.get() * 5));
+            g2.drawString(input, e.getX(), e.getY());
+
+            DrawData data = new DrawData(e.getX(), e.getY(), 0, 0, colorSupplier.get(), thicknessSupplier.get(), "text:" + input, false);
+            String json = new Gson().toJson(data);
+            connection.send("DRAW " + json);
+        }
+    }
+
+    @Override
+    public void onMouseDragged(MouseEvent e, Graphics2D g2) {}
+
+    @Override
+    public void onMouseReleased(MouseEvent e, Graphics2D g2) {}
+
+    @Override
+    public void preview(Graphics2D g2) {}
 }

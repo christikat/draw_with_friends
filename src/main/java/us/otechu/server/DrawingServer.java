@@ -240,6 +240,10 @@ public class DrawingServer {
         ClientHandler current = clients.get(turnIndex);
         if (current != null) {
             current.sendMessage("TURN");
+            if (current.username != null) {
+                broadcastMessage("LOG It's " + current.username + " turn!");
+            }
+
             log("Current turn: " + (current.username != null ? current.username : ("index " + turnIndex)));
         }
     }

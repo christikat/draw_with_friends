@@ -1,18 +1,25 @@
 package us.otechu.client.ui;
 
+import com.formdev.flatlaf.FlatDarculaLaf;
+import com.formdev.flatlaf.FlatIntelliJLaf;
 import us.otechu.client.ClientConnection;
 import us.otechu.client.DrawData;
 import us.otechu.common.Utils;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Base64;
+import java.util.Objects;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * The main app window (JFrame)
@@ -31,7 +38,6 @@ public class DrawingAppFrame extends JFrame {
 
     private JButton endTurnButton;
     private JButton clearButton;
-    private JCheckBox fillCheckBox;
     private JMenuItem openItem;
 
     // player list panels
@@ -39,10 +45,19 @@ public class DrawingAppFrame extends JFrame {
     private DefaultListModel<String> userListModel;
     private JList<String> userList;
     private boolean playersListVisible = true;
+    private JTextArea gameLogs;
 
     // track indexes from server
     private int currentIndex = -1;
     private int nextIndex = -1;
+
+    // Variables for button icons
+    private static final Color ICON_COLOUR = new Color(0x4D8BFF);
+    private static final int ICON_SIZE = 20;
+
+    private static final String FONT = "SansSerif";
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+
 
     public DrawingAppFrame(ClientConnection connection, String localUsername) {
         super("Draw With Friends"); // window title
@@ -53,6 +68,14 @@ public class DrawingAppFrame extends JFrame {
         setSize(1500, 1000);
         setLocationRelativeTo(null); // center window
         setResizable(true);
+
+        try {
+//            UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
+            UIManager.setLookAndFeel(new FlatIntelliJLaf());
+            SwingUtilities.updateComponentTreeUI(this); // update the UI
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
 
         createMenuBar(); // file actions
@@ -73,7 +96,7 @@ public class DrawingAppFrame extends JFrame {
         add(centerPanel, BorderLayout.CENTER);
 
         // right side -> players list
-        playersPanel = createPlayersPanel();
+        playersPanel = createSidePanel();
         add(playersPanel, BorderLayout.EAST);
     }
 
@@ -83,93 +106,143 @@ public class DrawingAppFrame extends JFrame {
      * @return the drawing panel
      */
     private JPanel createTopControls() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+
+        // Brush Settings - custom colour, thickness, fill
+        JPanel brushSettings = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        brushSettings.setBorder(BorderFactory.createTitledBorder("Brush Settings"));
 
         // color button
-        JButton colorButton = new JButton("Color");
+        JButton colorButton = new JButton("Colour", loadIcon("colour.png"));
         colorButton.addActionListener(e -> {
-            Color chosen = JColorChooser.showDialog(this, "Choose Brush Color", currentColor);
+            Color chosen = JColorChooser.showDialog(this, "Choose Brush Colour", currentColor);
             if (chosen != null) {
                 currentColor = chosen;
             }
         });
-        panel.add(colorButton);
+        brushSettings.add(colorButton);
 
         // thickness spinner
-        panel.add(new JLabel("Thickness"));
+        brushSettings.add(new JLabel("Thickness"));
         JSpinner thicknessSpinner = new JSpinner(new SpinnerNumberModel(brushSize, 1, 50, 1));
         thicknessSpinner.addChangeListener(e -> brushSize = (int) thicknessSpinner.getValue());
-        panel.add(thicknessSpinner);
-        // clear canvas
-        clearButton = new JButton("Clear");
-        clearButton.setEnabled(false);
-        clearButton.addActionListener(e -> {
-            if (!isTurn)
-                return;
+        brushSettings.add(thicknessSpinner);
 
-            connection.send("CLEAR");
-        });
-        panel.add(clearButton);
+        JCheckBox fillCheckBox = new JCheckBox("Fill");
+        brushSettings.add(fillCheckBox);
+
+        panel.add(brushSettings);
+
+        // Tools - pencil, line, rect, circle, text
+        JPanel toolPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        toolPanel.setBorder(BorderFactory.createTitledBorder("Tools"));
 
         // pencil
-        JButton pencilButton = new JButton("Pencil");
+        JButton pencilButton = new JButton("Pencil", loadIcon("pencil.png"));
         pencilButton.addActionListener(e -> drawingPanel.setCurrentTool(
                 new Pencil(() -> currentColor, () -> brushSize, connection)));
-        panel.add(pencilButton);
+        toolPanel.add(pencilButton);
 
         // line
-        JButton lineButton = new JButton("Line");
+        JButton lineButton = new JButton("Line", loadIcon("line.png"));
         lineButton.addActionListener(e -> drawingPanel.setCurrentTool(
                 new Line(() -> currentColor, () -> brushSize, connection)));
-        panel.add(lineButton);
+        toolPanel.add(lineButton);
 
         // rectangle
-        JButton rectButton = new JButton("Rectangle");
+        JButton rectButton = new JButton("Rectangle", loadIcon("rect.png"));
         rectButton.addActionListener(e -> drawingPanel.setCurrentTool(
                 new Rectangle(() -> currentColor, () -> brushSize, () -> fillCheckBox.isSelected(), connection)));
-        panel.add(rectButton);
+        toolPanel.add(rectButton);
 
         // circle
-        JButton circleButton = new JButton("Circle");
+        JButton circleButton = new JButton("Circle", loadIcon("circle.png"));
         circleButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Circle(() -> currentColor, () -> brushSize, ()-> fillCheckBox.isSelected(), connection)));
-        panel.add(circleButton);
+                new Circle(() -> currentColor, () -> brushSize, () -> fillCheckBox.isSelected(), connection)));
+        toolPanel.add(circleButton);
 
-        fillCheckBox = new JCheckBox("Fill");
-        panel.add(fillCheckBox);
+        // text
+        JButton textButton = new JButton("Text", loadIcon("text.png"));
+        textButton.addActionListener(e -> drawingPanel.setCurrentTool(
+                new TextTool(() -> currentColor, () -> brushSize, connection)));
+        toolPanel.add(textButton);
+
+        panel.add(toolPanel);
+
+        // canvas
+        JPanel canvasPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        canvasPanel.setBorder(BorderFactory.createTitledBorder("Canvas"));
+
+        // clear canvas
+        clearButton = new JButton("Clear", loadIcon("clear.png"));
+        clearButton.setEnabled(false);
+        clearButton.addActionListener(e -> {
+            if (!isTurn) return;
+            connection.send("CLEAR");
+        });
+        canvasPanel.add(clearButton);
 
         // end turn
-        endTurnButton = new JButton("End Turn");
+        endTurnButton = new JButton("End Turn", loadIcon("end.png"));
         endTurnButton.setEnabled(false);
         endTurnButton.addActionListener(e -> {
-            if (!isTurn)
-                return;
+            if (!isTurn) return;
             setTurn(false);
             connection.send("ENDTURN");
         });
-        panel.add(endTurnButton);
+        canvasPanel.add(endTurnButton);
+
+        panel.add(canvasPanel);
+
+        // Panel for UI toggles - theme/player list
+        JPanel togglePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        togglePanel.setBorder(BorderFactory.createTitledBorder("UI"));
+
+        // Toggle between dark and light
+        JToggleButton toggleTheme = new JToggleButton("Dark Mode", loadIcon("dark.png"));
+        toggleTheme.addActionListener(e -> {
+            try {
+                if (toggleTheme.isSelected()) {
+                    // Set dark mode
+                    UIManager.setLookAndFeel(new FlatDarculaLaf());
+                    toggleTheme.setText("Light Mode");
+                    toggleTheme.setIcon(loadIcon("light.png"));
+                } else {
+                    // Set light mode
+                    UIManager.setLookAndFeel(new FlatIntelliJLaf());
+                    toggleTheme.setText("Dark Mode");
+                    toggleTheme.setIcon(loadIcon("dark.png"));
+                }
+
+                // Repaint all windows to apply the new theme
+                SwingUtilities.updateComponentTreeUI(this);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
+        togglePanel.add(toggleTheme);
 
         // toggle player list
-        JButton toggleListButton = new JButton("Hide Players List");
+        JButton toggleListButton = new JButton("Hide Players List", loadIcon("player.png"));
         toggleListButton.addActionListener(e -> {
             playersListVisible = !playersListVisible;
             if (playersListVisible) {
-                // re-add the panel to the layout
                 add(playersPanel, BorderLayout.EAST);
                 toggleListButton.setText("Hide Players List");
             } else {
-                // remove the panel from the layout
                 remove(playersPanel);
                 toggleListButton.setText("Show Players List");
             }
-
             revalidate();
             repaint();
         });
-        panel.add(toggleListButton);
+        togglePanel.add(toggleListButton);
+
+        panel.add(togglePanel);
 
         return panel;
     }
+
 
     /**
      * Color Palate & Drawing Panel
@@ -209,10 +282,13 @@ public class DrawingAppFrame extends JFrame {
     private JPanel createPlayersPanel() {
         JPanel panel = new JPanel(new BorderLayout());
 
-        JLabel titleLabel = new JLabel("Players List", SwingConstants.CENTER);
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        panel.add(titleLabel, BorderLayout.NORTH);
-
+        panel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(),
+                "Players List",
+                TitledBorder.CENTER,
+                TitledBorder.TOP,
+                new Font(FONT, Font.BOLD, 12)
+        ));
         userListModel = new DefaultListModel<>();
         userList = new JList<>(userListModel);
         userList.setCellRenderer(new PlayerListRenderer(() -> currentIndex, () -> nextIndex, () -> localUsername));
@@ -224,6 +300,47 @@ public class DrawingAppFrame extends JFrame {
         panel.setPreferredSize(new Dimension(250, getHeight()));
 
         return panel;
+    }
+
+    /**
+     * Creates the side panel for list of players and logs
+     */
+    private JPanel createSidePanel() {
+        JPanel sidePanel = new JPanel(new BorderLayout());
+        playersPanel = createPlayersPanel();
+        gameLogs = new JTextArea();
+
+        gameLogs.setEditable(false);
+        gameLogs.setLineWrap(true);
+        gameLogs.setWrapStyleWord(true);
+        gameLogs.setRows(25);
+        gameLogs.setFont(new Font(FONT, Font.PLAIN, 12));
+
+        JScrollPane scrollPane = new JScrollPane(gameLogs);
+        gameLogs.append("Welcome to Drawing with Friends \uD83D\uDE04\n");
+
+        scrollPane.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createEtchedBorder(),
+                "Drawing Logs",
+                TitledBorder.CENTER,
+                TitledBorder.TOP,
+                new Font(FONT, Font.BOLD, 12)
+        ));
+
+        sidePanel.add(playersPanel, BorderLayout.CENTER);
+        sidePanel.add(scrollPane, BorderLayout.PAGE_END);
+        return sidePanel;
+    }
+    /**
+     * Appends a message to the logs with a timestamp
+     * @param text the text to add
+     */
+    public void updateLog(String text) {
+        String timestamp = LocalDateTime.now().format(TIME_FORMATTER);
+        gameLogs.append("[" + timestamp + "] " + text + "\n");
+
+        //Auto scroll
+        gameLogs.setCaretPosition(gameLogs.getDocument().getLength());
     }
 
     /**
@@ -326,6 +443,7 @@ public class DrawingAppFrame extends JFrame {
                     drawingPanel.setCanvasImage(img); // set local canvas
 
                     String base64 = encodeToBase64(img);
+//                    String base64 = encodeToBase64(drawingPanel.getCanvasImage());
                     connection.send("LOADIMG " + base64); // send to server
                 }
             } catch (IOException e) {
@@ -375,10 +493,6 @@ public class DrawingAppFrame extends JFrame {
         drawingPanel.repaint();
     }
 
-    private void setCurrentColor(Color color) {
-        currentColor = color;
-    }
-
     /**
      * Updates the players turn, enabling/disabling drawing
      * 
@@ -396,5 +510,41 @@ public class DrawingAppFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "It's your turn to draw!");
         }
     }
+
+    /**
+     * Creates a sized and coloured icon from an image file
+     *
+     * @param filename the name of the image file
+     */
+    public static ImageIcon loadIcon(String filename) {
+        String path = "/icons/" + filename;
+        URL resource = Objects.requireNonNull(DrawingAppFrame.class.getResource(path), "Icon not found: " + path);
+
+        // Get icon and image from png
+        ImageIcon rawIcon = new ImageIcon(resource);
+        Image rawImage = rawIcon.getImage();
+
+        // Create resized image
+        BufferedImage scaledImage = new BufferedImage(ICON_SIZE, ICON_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2dScaled = scaledImage.createGraphics();
+        // Smooth the image with bi-linear interpolation (good for icons)
+        g2dScaled.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2dScaled.drawImage(rawImage, 0, 0, ICON_SIZE, ICON_SIZE, null);
+        g2dScaled.dispose();
+
+        // Tint the image
+        BufferedImage tintedImage = new BufferedImage(ICON_SIZE, ICON_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = tintedImage.createGraphics();
+        g2d.drawImage(scaledImage, 0, 0, null);
+
+        // Only colour the non-transparent pixels
+        g2d.setComposite(AlphaComposite.SrcAtop);
+        g2d.setColor(ICON_COLOUR);
+        g2d.fillRect(0, 0, ICON_SIZE, ICON_SIZE);
+        g2d.dispose();
+
+        return new ImageIcon(tintedImage);
+    }
+
 }
 

@@ -77,7 +77,8 @@ public class ClientHandler implements Runnable {
 
                         sendMessage("JOINED " + this.username);
                         server.broadcastUserList();
-                        server.log("User joined: " + this.username);
+                        server.log("New player joined: " + this.username);
+                        server.broadcastMessage("LOG " + this.username + " has joined the game!");
                         break; // exit the loop
                     }
                 }
@@ -149,7 +150,9 @@ public class ClientHandler implements Runnable {
                         // send blank canvas to all clients
                         String blankBase64 = server.encodeCanvasToBase64(server.getServerCanvas());
                         server.broadcastMessage("LOADIMG " + blankBase64);
-                        server.log("Player " + username + " cleared the canvas.");
+                        String logMsg = username + " cleared the canvas.";
+                        server.log(logMsg);
+                        server.broadcastMessage("LOG " + logMsg);
                     } else {
                         sendMessage("Not your turn!");
                     }
@@ -177,6 +180,7 @@ public class ClientHandler implements Runnable {
             // user disconnected
         } finally {
             closeAll();
+            server.broadcastMessage("LOG " + username + " has left the game.");
             server.removeClient(this);
             server.log("Client disconnected: " + (username != null ? username : socket));
         }

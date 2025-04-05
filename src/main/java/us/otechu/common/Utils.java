@@ -1,14 +1,34 @@
 package us.otechu.common;
 
 import us.otechu.client.DrawData;
+import us.otechu.client.ui.DrawingPanel;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
 
 public class Utils {
+
+    /**
+     * Draws a shape on the graphics2d context based on the given data
+     * @param g2   the context to draw on
+     * @param data the object containing coordinates, color, thickness, and shape info
+     */
     public static void drawFromData(Graphics2D g2, DrawData data) {
         // Set colour and thickness
         g2.setColor(Color.decode(data.colourHex));
         g2.setStroke(new BasicStroke(data.thickness));
+
+        if (data.shape.startsWith("text:")) {
+            String text = data.shape.substring(5);
+            g2.setFont(new Font("Arial", Font.PLAIN, data.thickness * 5));
+            g2.drawString(text, data.x1, data.y1);
+            return;
+        }
 
         // Use the appropriate method for each shape
         switch (data.shape) {

@@ -17,7 +17,7 @@ public class DrawWithFriends extends JFrame {
     private static ClientConnection connection;
 
     private static volatile String nameResult = ""; // used to check if name is taken
-    private static String localUsername = ""; 
+    private static String localUsername = "";
 
     private static void handleServerMessage(String msg) {
         // Notifies player server is full, and closes.
@@ -60,6 +60,11 @@ public class DrawWithFriends extends JFrame {
         } else if (msg.equals("TURN")) {
             if (frame != null) {
                 SwingUtilities.invokeLater(() -> frame.setTurn(true));
+            }
+        } else if (msg.startsWith("LOG ")) {
+            String logMsg = msg.substring(4);
+            if (frame != null) {
+                SwingUtilities.invokeLater(() -> frame.updateLog(logMsg));
             }
         }
     }
