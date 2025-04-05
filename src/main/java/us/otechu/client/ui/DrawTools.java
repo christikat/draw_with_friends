@@ -54,7 +54,7 @@ class Pencil implements DrawTools {
 
 
         // Send data for new line to the server to update other players
-        DrawData data = new DrawData(prevX, prevY, x, y, colorSupplier.get(), thicknessSupplier.get(), "pencil");
+        DrawData data = new DrawData(prevX, prevY, x, y, colorSupplier.get(), thicknessSupplier.get(), "pencil", false);
         String json = new Gson().toJson(data);
         connection.send("DRAW " + json);
 
@@ -123,7 +123,7 @@ class Line implements  DrawTools {
         isDragging = false;
 
         // Send data for new line to the server to update other players
-        DrawData data = new DrawData(x1, y1, x2, y2, colorSupplier.get(), thicknessSupplier.get(), "line");
+        DrawData data = new DrawData(x1, y1, x2, y2, colorSupplier.get(), thicknessSupplier.get(), "line", false);
         String json = new Gson().toJson(data);
         connection.send("DRAW " + json);
     }
@@ -146,11 +146,13 @@ class Rectangle implements DrawTools {
     private boolean isDragging = false;
     private final Supplier<Color> colorSupplier;
     private final Supplier<Integer> thicknessSupplier;
+    Supplier<Boolean> filled;
     private final ClientConnection connection;
 
-    Rectangle(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
+    Rectangle(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, Supplier<Boolean> filled, ClientConnection connection) {
         this.colorSupplier = colorSupplier;
         this.thicknessSupplier = thicknessSupplier;
+        this.filled = filled;
         this.connection = connection;
     }
 
@@ -183,9 +185,13 @@ class Rectangle implements DrawTools {
         int width = Math.abs(x2 - x1);
         int height = Math.abs(y2 - y1);
 
-        g2.drawRect(x, y, width, height);
+        if (filled.get()) {
+            g2.fillRect(x, y, width, height);
+        } else {
+            g2.drawRect(x, y, width, height);
+        }
 
-        DrawData data = new DrawData(x, y, x + width, y + height, colorSupplier.get(), thicknessSupplier.get(), "rect");
+        DrawData data = new DrawData(x, y, x + width, y + height, colorSupplier.get(), thicknessSupplier.get(), "rect", filled.get());
         String json = new Gson().toJson(data);
         connection.send("DRAW " + json);
     }
@@ -201,7 +207,91 @@ class Rectangle implements DrawTools {
             int width = Math.abs(x2 - x1);
             int height = Math.abs(y2 - y1);
 
-            g2.drawRect(x, y, width, height);
+
+            if (filled.get()) {
+                g2.fillRect(x, y, width, height);
+            } else {
+                g2.drawRect(x, y, width, height);
+            }
+        }
+    }
+}
+
+/**
+ * Tool for drawing circles/ovals, click and drag.
+ */
+class Circle implements DrawTools {
+    private int x1, y1, x2, y2;
+    private boolean isDragging = false;
+    private final Supplier<Color> colorSupplier;
+    private final Supplier<Integer> thicknessSupplier;
+    Supplier<Boolean> filled;
+    private final ClientConnection connection;
+
+    Circle(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, Supplier<Boolean> filled, ClientConnection connection) {
+        this.colorSupplier = colorSupplier;
+        this.thicknessSupplier = thicknessSupplier;
+        this.filled = filled;
+        this.connection = connection;
+    }
+
+    @Override
+    public void onMousePressed(MouseEvent e, Graphics2D g2) {
+        x1 = e.getX();
+        y1 = e.getY();
+        x2 = x1;
+        y2 = y1;
+        isDragging = true;
+    }
+
+    @Override
+    public void onMouseDragged(MouseEvent e, Graphics2D g2) {
+        x2 = e.getX();
+        y2 = e.getY();
+    }
+
+    @Override
+    public void onMouseReleased(MouseEvent e, Graphics2D g2) {
+        isDragging = false;
+        g2.setStroke(new BasicStroke(thicknessSupplier.get()));
+        g2.setColor(colorSupplier.get());
+
+        // Get top left of the coordinates
+        int x = Math.min(x1, x2);
+        int y = Math.min(y1, y2);
+
+        //Get positive height/width
+        int width = Math.abs(x2 - x1);
+        int height = Math.abs(y2 - y1);
+
+
+        if (filled.get()) {
+            g2.fillOval(x, y, width, height);
+        } else {
+            g2.drawOval(x, y, width, height);
+        }
+
+        DrawData data = new DrawData(x, y, x + width, y + height, colorSupplier.get(), thicknessSupplier.get(), "circle", filled.get());
+        String json = new Gson().toJson(data);
+        connection.send("DRAW " + json);
+    }
+
+    @Override
+    public void preview(Graphics2D g2) {
+        if (isDragging) {
+            g2.setStroke(new BasicStroke(thicknessSupplier.get()));
+            g2.setColor(colorSupplier.get());
+
+            int x = Math.min(x1, x2);
+            int y = Math.min(y1, y2);
+            int width = Math.abs(x2 - x1);
+            int height = Math.abs(y2 - y1);
+
+            if (filled.get()) {
+                g2.fillOval(x, y, width, height);
+            } else {
+                g2.drawOval(x, y, width, height);
+            }
         }
     }
 }

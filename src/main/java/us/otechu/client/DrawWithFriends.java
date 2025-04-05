@@ -61,8 +61,6 @@ public class DrawWithFriends extends JFrame {
             if (frame != null) {
                 SwingUtilities.invokeLater(() -> frame.setTurn(true));
             }
-        } else if (msg.equals("CLEAR")) {
-            SwingUtilities.invokeLater(() -> frame.clear());
         }
     }
 

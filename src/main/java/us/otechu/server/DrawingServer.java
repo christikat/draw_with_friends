@@ -18,7 +18,9 @@ import javax.imageio.ImageIO;
 
 import com.google.gson.Gson;
 
+import jdk.jshell.execution.Util;
 import us.otechu.client.DrawData;
+import us.otechu.common.Utils;
 
 /**
  * The main server for the drawing application.
@@ -125,9 +127,7 @@ public class DrawingServer {
         DrawData data = parseDrawJson(drawDataJson);
 
         // then draw onto serverCanvas
-        serverG2.setColor(Color.decode(data.colourHex));
-        serverG2.setStroke(new BasicStroke(data.thickness));
-        serverG2.drawLine(data.x1, data.y1, data.x2, data.y2);
+        Utils.drawFromData(serverG2, data);
     }
 
     /**
@@ -337,17 +337,6 @@ public class DrawingServer {
         for (ClientHandler client : clients) {
             if (client != sender) {
                 client.sendMessage(drawData);
-            }
-        }
-    }
-    /**
-     * Sends message to clients to clear canvas
-     */
-    public void clearCanvas(ClientHandler sender) {
-        // send to all clients except sender
-        for (ClientHandler client : clients) {
-            if (client != sender) {
-                client.sendMessage("CLEAR");
             }
         }
     }

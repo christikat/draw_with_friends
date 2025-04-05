@@ -2,6 +2,7 @@ package us.otechu.client.ui;
 
 import us.otechu.client.ClientConnection;
 import us.otechu.client.DrawData;
+import us.otechu.common.Utils;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -30,6 +31,7 @@ public class DrawingAppFrame extends JFrame {
 
     private JButton endTurnButton;
     private JButton clearButton;
+    private JCheckBox fillCheckBox;
     private JMenuItem openItem;
 
     // player list panels
@@ -98,9 +100,9 @@ public class DrawingAppFrame extends JFrame {
         JSpinner thicknessSpinner = new JSpinner(new SpinnerNumberModel(brushSize, 1, 50, 1));
         thicknessSpinner.addChangeListener(e -> brushSize = (int) thicknessSpinner.getValue());
         panel.add(thicknessSpinner);
-        clearButton.setEnabled(false);
         // clear canvas
-        JButton clearButton = new JButton("Clear");
+        clearButton = new JButton("Clear");
+        clearButton.setEnabled(false);
         clearButton.addActionListener(e -> {
             if (!isTurn)
                 return;
@@ -124,8 +126,17 @@ public class DrawingAppFrame extends JFrame {
         // rectangle
         JButton rectButton = new JButton("Rectangle");
         rectButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new Rectangle(() -> currentColor, () -> brushSize, connection)));
+                new Rectangle(() -> currentColor, () -> brushSize, () -> fillCheckBox.isSelected(), connection)));
         panel.add(rectButton);
+
+        // circle
+        JButton circleButton = new JButton("Circle");
+        circleButton.addActionListener(e -> drawingPanel.setCurrentTool(
+                new Circle(() -> currentColor, () -> brushSize, ()-> fillCheckBox.isSelected(), connection)));
+        panel.add(circleButton);
+
+        fillCheckBox = new JCheckBox("Fill");
+        panel.add(fillCheckBox);
 
         // end turn
         endTurnButton = new JButton("End Turn");
@@ -360,31 +371,7 @@ public class DrawingAppFrame extends JFrame {
      */
     public void drawFromData(DrawData data) {
         Graphics2D g2 = drawingPanel.getCanvasImage().createGraphics();
-
-        // Set colour and thickness
-        g2.setColor(Color.decode(data.colourHex));
-        g2.setStroke(new BasicStroke(data.thickness));
-
-        // Use the appropriate method for each shape
-        switch (data.shape) {
-            case "pencil":
-            case "line":
-                g2.drawLine(data.x1, data.y1, data.x2, data.y2);
-                break;
-            case "rect":
-                int rx = Math.min(data.x1, data.x2);
-                int ry = Math.min(data.y1, data.y2);
-                int rw = Math.abs(data.x2 - data.x1);
-                int rh = Math.abs(data.y2 - data.y1);
-                g2.drawRect(rx, ry, rw, rh);
-                break;
-            default:
-                System.out.println("Error: invalid shape - " + data.shape);
-                break;
-        }
-
-        // Draws the line from data coordinates
-//        g2.drawLine(data.x1, data.y1, data.x2, data.y2);
+        Utils.drawFromData(g2, data);
         drawingPanel.repaint();
     }
 
@@ -410,3 +397,4 @@ public class DrawingAppFrame extends JFrame {
         }
     }
 }
+
