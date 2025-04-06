@@ -47,6 +47,10 @@ public class ClientConnection {
                 }
             } catch (IOException e) {
                 System.out.println("Disconnected from server.");
+            } finally {
+                if (socket != null && !socket.isClosed()) {
+                    disconnect();
+                }
             }
         });
         serverListener.start();

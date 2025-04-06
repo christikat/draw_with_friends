@@ -172,6 +172,13 @@ public class ClientHandler implements Runnable {
                     }
                     continue;
                 }
+
+                if (line.startsWith("CHAT ")) {
+                    String msg = "LOG " + username + ": " + line.substring(5);
+                    server.broadcastMessage(msg);
+                    continue;
+                }
+
                 // unrecognized message
                 server.log("Unknown message from " + username + ": " + line);
             }

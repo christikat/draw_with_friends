@@ -45,15 +45,15 @@ class PlayerListRenderer extends DefaultListCellRenderer {
         Color textColor = Color.BLACK;
 
         if (index == current) {
-            textColor = Color.GREEN;
+            textColor = new Color(0x2ECC71);
         }
 
         else if (index == next) {
-            textColor = Color.YELLOW;
+            textColor = new Color(0xF1C40F);
         }
 
         else if (name.equalsIgnoreCase(local)) {
-            textColor = Color.GRAY;
+            textColor = new Color(0xE74C3C);
         }
 
         setForeground(textColor);

@@ -45,7 +45,9 @@ public class DrawingAppFrame extends JFrame {
     private DefaultListModel<String> userListModel;
     private JList<String> userList;
     private boolean playersListVisible = true;
+
     private JTextArea gameLogs;
+    private JTextField chatInput;
 
     // track indexes from server
     private int currentIndex = -1;
@@ -53,10 +55,10 @@ public class DrawingAppFrame extends JFrame {
 
     // Variables for button icons
     private static final Color ICON_COLOUR = new Color(0x4D8BFF);
-    private static final int ICON_SIZE = 20;
+    private static final int ICON_SIZE = 24;
 
     private static final String FONT = "SansSerif";
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
 
     public DrawingAppFrame(ClientConnection connection, String localUsername) {
@@ -308,18 +310,10 @@ public class DrawingAppFrame extends JFrame {
     private JPanel createSidePanel() {
         JPanel sidePanel = new JPanel(new BorderLayout());
         playersPanel = createPlayersPanel();
-        gameLogs = new JTextArea();
 
-        gameLogs.setEditable(false);
-        gameLogs.setLineWrap(true);
-        gameLogs.setWrapStyleWord(true);
-        gameLogs.setRows(25);
-        gameLogs.setFont(new Font(FONT, Font.PLAIN, 12));
-
-        JScrollPane scrollPane = new JScrollPane(gameLogs);
-        gameLogs.append("Welcome to Drawing with Friends \uD83D\uDE04\n");
-
-        scrollPane.setBorder(BorderFactory.createTitledBorder(
+        // Create a panel for game logs and chat
+        JPanel logPanel = new JPanel(new BorderLayout());
+        logPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createEtchedBorder(),
                 "Drawing Logs",
                 TitledBorder.CENTER,
@@ -327,10 +321,45 @@ public class DrawingAppFrame extends JFrame {
                 new Font(FONT, Font.BOLD, 12)
         ));
 
+        // Text area for logs
+        gameLogs = new JTextArea();
+        gameLogs.setEditable(false);
+        gameLogs.setLineWrap(true);
+        gameLogs.setWrapStyleWord(true);
+        gameLogs.setRows(20);
+        gameLogs.setFont(new Font(FONT, Font.PLAIN, 12));
+
+        JScrollPane scrollPane = new JScrollPane(gameLogs);
+        gameLogs.append("Welcome to Drawing with Friends \uD83D\uDE04\n");
+        logPanel.add(scrollPane, BorderLayout.CENTER);
+
+        // Panel for chat input and send
+        JPanel chatPanel = new JPanel(new BorderLayout());
+        // Send message on "enter"
+        chatInput = new JTextField();
+        chatInput.addActionListener(e -> sendChatMessage());
+
+        // Send messge on button click
+        JButton sendButton = new JButton("", loadIcon("send.png"));
+        sendButton.addActionListener(e -> sendChatMessage());
+
+        chatPanel.add(chatInput, BorderLayout.CENTER);
+        chatPanel.add(sendButton, BorderLayout.EAST);
+        logPanel.add(chatPanel, BorderLayout.SOUTH);
+
         sidePanel.add(playersPanel, BorderLayout.CENTER);
-        sidePanel.add(scrollPane, BorderLayout.PAGE_END);
+        sidePanel.add(logPanel, BorderLayout.PAGE_END);
         return sidePanel;
     }
+
+    private void sendChatMessage() {
+        String msg = chatInput.getText();
+        if (!msg.trim().isEmpty()) {
+            connection.send("CHAT " + msg);
+            chatInput.setText("");
+        }
+    }
+
     /**
      * Appends a message to the logs with a timestamp
      * @param text the text to add

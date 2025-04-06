@@ -1,5 +1,6 @@
 package us.otechu.client;
 
+import com.formdev.flatlaf.FlatIntelliJLaf;
 import com.google.gson.Gson;
 import us.otechu.client.ui.DrawingAppFrame;
 import javax.swing.*;
@@ -71,9 +72,14 @@ public class DrawWithFriends extends JFrame {
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
+
             try {
                 connection = new ClientConnection(DrawWithFriends::handleServerMessage);
-
+                try {
+                    UIManager.setLookAndFeel(new FlatIntelliJLaf());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 // repeatedly prompt for username until success or user quits
                 while (true) {
                     nameResult = "";
