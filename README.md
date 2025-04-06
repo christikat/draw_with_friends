@@ -57,7 +57,7 @@ us.otechu
 - Java 17+
 
 ### Steps
-1. Download the server.jar and client.jar files from the latest release
+1. Download the server.jar and client.jar files from the [latest release](https://github.com/OntarioTech-CS-program/w25-csci2020u-finalproject-w25-team59/releases)
 2. Open up two terminals set to folder containing the `.jar` files
 3. Run the server file in the terminal with the command:
     ```bash
