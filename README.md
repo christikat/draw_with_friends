@@ -10,14 +10,21 @@ Players connect, select their username, and take turns drawing on a shared canva
 - **Fill**: Used in combination with the rectangle and circle tool. Creates filled or outlined shapes.
 - **Clear**: Resets to a blank canvas
 - **Light/Dark Mode Toggle**: Switch between light and dark themes
-- **Drawing Logs**: Time stamped game logs - notifies turns, player connections/disconnections, clears
-- **Player List/Drawing Logs Toggle**: Hide/Show the rigth panel
+- **Drawing Logs**: Time stamped game logs - notifies turns, player connections/disconnections, clears, chat
+- **Player List/Drawing Logs Toggle**: Hide/Show the right panel
 - **Save**: Save the canvas as a png
 - **Open**: Open and image to add to the canvas (adds to top left corner)
+- **Chat**: Sends messages to everyone connected to the server
 
 ## 📷 Screenshots
+<div align="center">
+<img src="https://i.imgur.com/JIvcfLO.png" alt="screenshot-1">
+<img src="https://i.imgur.com/awbozWI.png" alt="screenshot-1">
+<img src="https://i.imgur.com/sETTYWw.png" alt="screenshot-1">
+</div>
 
 ## 🎥 Video Demo
+https://github.com/user-attachments/assets/65aa0255-83e3-42c6-bf10-08619a608488
 
 ## 📁 Project File Structure
 ```text
@@ -56,15 +63,15 @@ us.otechu
     ```bash
     java -jar server.jar
     ```
-    - The server will be listening on port 5000, waiting for clients to connect
+   - The server will be listening on port 5000, waiting for clients to connect
 4. In the second terminal, run the client file with:
     ```bash
     java -jar client.jar
     ```
-    - The client will prompt you for a username
-    - Wait for your turn
-    - Start drawing!
-    - Pass the turn to the next player, by clicking "End Turn"
+   - The client will prompt you for a username
+   - Wait for your turn
+   - Start drawing!
+   - Pass the turn to the next player, by clicking "End Turn"
 
 
 
