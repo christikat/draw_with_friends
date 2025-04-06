@@ -31,8 +31,8 @@ public class DrawingServer {
     /** Max number of players */
     public final static int MAX_CLIENTS = 4;
 
-    private static final int CANVAS_WIDTH = 1500;
-    private static final int CANVAS_HEIGHT = 1000;
+    private static final int CANVAS_WIDTH = 1920;
+    private static final int CANVAS_HEIGHT = 1080;
     private BufferedImage serverCanvas;
     private Graphics2D serverG2;
 

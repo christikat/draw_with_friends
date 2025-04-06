@@ -304,17 +304,19 @@ class TextTool implements DrawTools {
     private final Supplier<Color> colorSupplier;
     private final Supplier<Integer> thicknessSupplier;
     private final ClientConnection connection;
+    private final Window parent;
 
-    public TextTool(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection) {
+    public TextTool(Supplier<Color> colorSupplier, Supplier<Integer> thicknessSupplier, ClientConnection connection, Window parent) {
         this.colorSupplier = colorSupplier;
         this.thicknessSupplier = thicknessSupplier;
         this.connection = connection;
+        this.parent = parent;
     }
 
     @Override
     public void onMousePressed(MouseEvent e, Graphics2D g2) {
         // Pop up to get user input
-        String input = JOptionPane.showInputDialog("Enter text:");
+        String input = JOptionPane.showInputDialog(parent, "Enter text:");
         if (input != null && !input.isEmpty()) {
             g2.setColor(colorSupplier.get());
             // Text size based on thickness supplier

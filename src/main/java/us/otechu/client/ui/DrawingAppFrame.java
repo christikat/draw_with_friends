@@ -166,7 +166,7 @@ public class DrawingAppFrame extends JFrame {
         // text
         JButton textButton = new JButton("Text", loadIcon("text.png"));
         textButton.addActionListener(e -> drawingPanel.setCurrentTool(
-                new TextTool(() -> currentColor, () -> brushSize, connection)));
+                new TextTool(() -> currentColor, () -> brushSize, connection, this)));
         toolPanel.add(textButton);
 
         panel.add(toolPanel);
@@ -218,6 +218,9 @@ public class DrawingAppFrame extends JFrame {
 
                 // Repaint all windows to apply the new theme
                 SwingUtilities.updateComponentTreeUI(this);
+                // Update side panel in case it's hidden
+                SwingUtilities.updateComponentTreeUI(playersPanel); // force update on hidden panel
+
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
