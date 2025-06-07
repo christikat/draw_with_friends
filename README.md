@@ -23,9 +23,6 @@ Players connect, select their username, and take turns drawing on a shared canva
 <img src="https://i.imgur.com/sETTYWw.png" alt="screenshot-1">
 </div>
 
-## 🎥 Video Demo
-https://github.com/user-attachments/assets/65aa0255-83e3-42c6-bf10-08619a608488
-
 ## 📁 Project File Structure
 ```text
 us.otechu
