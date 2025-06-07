@@ -57,7 +57,7 @@ us.otechu
 - Java 17+
 
 ### Steps
-1. Download the server.jar and client.jar files from the [latest release](https://github.com/OntarioTech-CS-program/w25-csci2020u-finalproject-w25-team59/releases)
+1. Download the server.jar and client.jar files from the [latest release](https://github.com/christikat/draw_with_friends/releases)
 2. Open up two terminals set to folder containing the `.jar` files
 3. Run the server file in the terminal with the command:
     ```bash
@@ -104,8 +104,8 @@ us.otechu
 </div>
 
 ## 💻 Collaborators
-- Christine Tran
-- Kishawn Wynter
+- [Christine](https://github.com/christikat)
+- [Kishawn](https://github.com/ratter-exe) 
 
 ## 📖 References
 1. Icons: https://fonts.google.com/icons
@@ -113,3 +113,5 @@ us.otechu
 3. Convert `Color` to hexadecimal string: https://stackoverflow.com/questions/3607858/convert-a-rgb-color-value-to-a-hexadecimal-string
 4. gson: https://google.github.io/gson/
 5. Supplier Interface: https://www.geeksforgeeks.org/supplier-interface-in-java-with-examples/
+
+<i>This project was originally submitted as coursework for CSCI2020U Software Systems Development & Integration at Ontario Tech University, Winter 2025.</i>
